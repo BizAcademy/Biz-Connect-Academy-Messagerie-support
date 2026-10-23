@@ -19,7 +19,7 @@ const sourceInputs = [
   "lib/db/src", "lib/db/drizzle", "lib/api-zod/src", "lib/api-client-react/src",
   "lib/api-spec/openapi.yaml", "scripts/build-standalone.mjs", "scripts/build-plesk.mjs",
   "plesk/app.cjs", "plesk/environment.cjs", "plesk/verify.cjs", "plesk/deploy.cjs", "plesk/deploy.sh",
-  "plesk/admin.cjs", "plesk/member.cjs",
+  "plesk/admin.cjs", "plesk/member.cjs", "plesk/diagnose.cjs", "plesk/startup-report.cjs",
 ];
 function sourceDigest(repoRoot = path.dirname(root)) {
   const hash = crypto.createHash("sha256");
@@ -39,7 +39,7 @@ function releaseFiles() {
     ...filesUnder(path.join(root, "server")), ...filesUnder(path.join(root, "public")),
     ...filesUnder(path.join(root, "schema")),
     ...["package.json", "package-lock.json", "app.cjs", "environment.cjs", "verify.cjs",
-      "deploy.cjs", "deploy.sh", "admin.cjs", "member.cjs"].map((f) => path.join(root, f)),
+      "deploy.cjs", "deploy.sh", "admin.cjs", "member.cjs", "diagnose.cjs", "startup-report.cjs"].map((f) => path.join(root, f)),
   ].map((file) => path.relative(root, file).split(path.sep).join("/")).sort();
 }
 function verifyRelease(options = {}) {

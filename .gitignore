@@ -61,5 +61,6 @@ storage/
 
 # The small plesk/ distribution is intentionally tracked for prebuilt deployment.
 /plesk/.runtime-dependencies.sha256
+/plesk/.startup-status.json
 /plesk/.npm/
 /plesk/tmp/

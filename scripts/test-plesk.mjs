@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync, fork } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdtemp, cp, rm, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -22,7 +22,7 @@ try {
   run(["plesk/verify.cjs", "--sources"], root);
   await cp(path.join(root, "plesk"), app, {
     recursive: true,
-    filter: (file) => !["node_modules", ".env", ".runtime-dependencies.sha256"].includes(path.basename(file)),
+    filter: (file) => !["node_modules", ".env", ".runtime-dependencies.sha256", ".startup-status.json"].includes(path.basename(file)),
   });
   const env = { ...process.env, NODE_ENV: "production", SESSION_SECRET: randomBytes(32).toString("hex"),
     DATABASE_URL: "postgresql://unused:unused@127.0.0.1:1/unused", STORAGE_DIR: privateStorage, APP_ORIGIN: "https://bca.test" };
@@ -73,6 +73,37 @@ try {
   child.kill("SIGTERM");
   await new Promise((resolve) => child.once("exit", resolve));
   child = null;
+  const saved = JSON.parse(await readFile(path.join(app, ".startup-status.json"), "utf8"));
+  assert.equal(saved.stage, "ready");
+  const diagnosis = run(["diagnose.cjs", "--skip-db"], app, env);
+  assert.match(diagnosis, /Serveur compilé démarré/);
+  assert(!diagnosis.includes(env.SESSION_SECRET), "Diagnostic must not leak secrets");
+  assert.equal(JSON.parse(await readFile(path.join(app, ".startup-status.json"), "utf8")).at, saved.at, "Diagnostic must not overwrite the Passenger report");
+  const dbDiagnosis = spawnSync(process.execPath, ["diagnose.cjs"], { cwd: app, env, encoding: "utf8", timeout: 20000 });
+  assert.equal(dbDiagnosis.status, 1);
+  assert.match(dbDiagnosis.stdout, /ECONNREFUSED/);
+  assert(!dbDiagnosis.stdout.includes(env.DATABASE_URL), "Connection errors must not leak credentials");
+  assert(!dbDiagnosis.stdout.includes(env.SESSION_SECRET));
+  const badEnv = { ...env, SESSION_SECRET: "short-secret-test" };
+  const badStartup = spawnSync(process.execPath, ["app.cjs"], { cwd: app, env: badEnv, encoding: "utf8", timeout: 5000 });
+  assert.equal(badStartup.status, 1);
+  const badReport = JSON.parse(await readFile(path.join(app, ".startup-status.json"), "utf8"));
+  assert.equal(badReport.stage, "environment"); assert.equal(badReport.error.code, "BCA_SESSION_SECRET");
+  assert(!JSON.stringify(badReport).includes(badEnv.SESSION_SECRET));
+  const badDiagnosis = spawnSync(process.execPath, ["diagnose.cjs", "--skip-db"], { cwd: app, env: badEnv, encoding: "utf8", timeout: 5000 });
+  assert.equal(badDiagnosis.status, 1); assert.match(badDiagnosis.stdout, /BCA_SESSION_SECRET/);
+  assert(!badDiagnosis.stdout.includes(badEnv.SESSION_SECRET));
+  const safe = require("./startup-report.cjs").safeError(new Error("private-connection-string-for-test"));
+  assert(!safe.message.includes("private-connection-string-for-test"), "Unknown exceptions must not be recorded verbatim");
+  const keepalive = path.join(app, "passenger-keepalive-test.cjs");
+  await writeFile(keepalive, "setInterval(() => {}, 1000); process.on('message', () => {}); require('./app.cjs');\n");
+  child = fork(keepalive, [], { cwd: app, env: badEnv, silent: true });
+  child.stdout.resume(); child.stderr.resume();
+  const heldOpenChild = child;
+  const timedOut = setTimeout(() => heldOpenChild.kill("SIGKILL"), 4000);
+  const heldExit = await new Promise((resolve) => heldOpenChild.once("exit", (code) => resolve(code)));
+  clearTimeout(timedOut); child = null;
+  assert.equal(heldExit, 1, "Startup failure must exit explicitly even with Passenger-like IPC/timer handles");
 
   // The five database fields are encoded safely; no DB connection or values logged.
   run(["-e", `require('./environment.cjs')(); const u=new URL(process.env.DATABASE_URL); if(decodeURIComponent(u.password)!=='p@ss:/ %') process.exit(1);`], app,
@@ -83,7 +114,7 @@ try {
   const broken = spawnSync(process.execPath, ["app.cjs"], { cwd: app, env, encoding: "utf8", timeout: 5000 });
   assert.equal(broken.status, 1, "Incomplete release must fail instead of compiling");
   assert.match(broken.stderr, /incomplète ou modifiée/);
-  console.log("PASS: isolated prebuilt startup, three runtime dependencies installed without a build, cached deployment, HTML/assets/PWA/API, production HTTPS, demos disabled, safe database URL encoding, and incomplete release rejected.");
+  console.log("PASS: isolated prebuilt startup, runtime dependencies without a build, cached deployment, HTML/assets/PWA/API, HTTPS, safe URL encoding, incomplete release rejected, bounded diagnostic, persistent private startup report and secrets never printed.");
 } finally {
   if (child) { child.kill("SIGTERM"); await new Promise((resolve) => child.once("exit", resolve)); }
   await rm(temp, { recursive: true, force: true });

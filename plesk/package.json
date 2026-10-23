@@ -10,6 +10,7 @@
     "start": "node app.cjs",
     "verify": "node verify.cjs",
     "deploy": "node deploy.cjs",
+    "diagnose": "node diagnose.cjs",
     "admin:create": "node admin.cjs",
     "member:create": "node member.cjs"
   },

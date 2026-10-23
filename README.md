@@ -190,6 +190,22 @@ refuse une version compilée ne correspondant plus aux sources, sans compiler
 quoi que ce soit. `npm run test:plesk` teste la distribution dans un dossier isolé,
 sans les sources ni les dépendances du monorepo et sans toucher à la base.
 
+### Si le frontend s'affiche mais l'API renvoie 504
+
+Dans **Node.js → Run script**, lancer **`diagnose`** après le dernier Deploy Now
+et Restart App. La commande vérifie la distribution, les variables obligatoires
+(sans afficher leurs valeurs), les modules natifs, le démarrage d'un serveur
+temporaire local et sa route `/api/healthz`, puis la connexion PostgreSQL et
+l'existence des tables, uniquement en lecture seule. Elle ne compile rien, ne
+crée aucune table, n'installe rien et arrête son serveur temporaire.
+
+Le dernier état du vrai démarrage est conservé dans **`plesk/.startup-status.json`**,
+hors du dossier public et ignoré par Git. On peut le lire via File Manager si
+le lecteur de logs Plesk reste bloqué. Seuls l'étape, l'heure et une erreur
+filtrée y figurent, jamais la configuration ou les secrets.
+Un succès local ne valide pas Passenger : si l'URL publique reste en 504,
+le rapport de démarrage permet de distinguer l'application du routage Plesk.
+
 Socket.IO est attaché au même serveur HTTP que l’API, sur `/api/socket.io`.
 Le repli HTTP long-polling est conservé si WebSocket n’est pas disponible.
 Déployer **un seul processus Node** dans cette version : la présence et les
