@@ -32,7 +32,7 @@ export async function sendMessagePush(identity: Identity, userId: string, messag
       await webPush.sendNotification({
         endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth },
       }, JSON.stringify({
-        title: "Biz Connect Academy", body: "Vous avez reçu un nouveau message.",
+        title: "BCA Messenger", body: "Vous avez reçu un nouveau message.",
         conversationId: message.conversationId, tag: message.conversationId,
       }), { TTL: 86400, urgency: "high", timeout: 10000 });
     } catch (err: any) {

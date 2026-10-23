@@ -1,5 +1,5 @@
 import { QueryTypes, Op } from "sequelize";
-import { sequelize, Conversation, Presence, MessageRecord } from "@workspace/db";
+import { sequelize, Conversation, Presence, MessageRecord, User, Admin } from "@workspace/db";
 import type { Identity } from "./accounts";
 import { isOnline, isSupportOnline } from "./realtime";
 
@@ -32,13 +32,26 @@ export async function inbox(identity: Identity) {
     online: identity.role === "admin" ? isOnline(r.userId) : isSupportOnline(),
   }));
 }
-export function serializeMessage(row: any) {
+export function serializeMessage(row: any, sender?: any) {
   const m = typeof row.get === "function" ? row.get() : row;
   return {
     id: m.id, conversationId: m.conversationId, senderId: m.senderId, senderRole: m.senderRole,
+    senderName: sender?.username || (m.senderRole === "admin" ? "Support BCA Messenger" : "Membre"),
+    senderAvatarUrl: sender?.avatarFileId ? `/api/files/${sender.avatarFileId}` : null,
     type: m.type, content: m.content, fileUrl: m.fileId ? `/api/files/${m.fileId}` : null,
     duration: m.duration ?? null, status: m.status, createdAt: new Date(m.createdAt).toISOString(),
   };
+}
+export async function serializeMessages(rows: any[]) {
+  if (!rows.length) return [];
+  const data = rows.map((r) => typeof r.get === "function" ? r.get() : r);
+  const ids = (role: string) => [...new Set(data.filter((m) => m.senderRole === role).map((m) => m.senderId))];
+  const [members, admins] = await Promise.all([
+    User.findAll({ where: { id: { [Op.in]: ids("member") } }, attributes: ["id", "username", "avatarFileId"] }),
+    Admin.findAll({ where: { id: { [Op.in]: ids("admin") } }, attributes: ["id", "username", "avatarFileId"] }),
+  ]);
+  const senders = new Map([...members, ...admins].map((s) => [s.get("id"), s.get()]));
+  return data.map((m) => serializeMessage(m, senders.get(m.senderId)));
 }
 export async function deliverPending(conversationId: string, identity: Identity) {
   const [count] = await MessageRecord.update({ status: "delivered" }, { where: {

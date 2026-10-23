@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from "node:http";
 import { Server } from "socket.io";
-import { Presence, Conversation, SessionRecord } from "@workspace/db";
+import { Presence, Conversation, SessionRecord, MessageRecord } from "@workspace/db";
+import { Op } from "sequelize";
 import { verifyAccess } from "../middlewares/auth";
 import { appOrigin } from "../lib/config";
 import { logger } from "../lib/logger";
@@ -46,6 +47,18 @@ export async function initRealtime(server: HttpServer) {
     const state = online.get(identity.id) || { role: identity.role, sockets: new Set<string>() };
     state.sockets.add(socket.id); online.set(identity.id, state);
     await Presence.upsert({ accountId: identity.id, role: identity.role, lastSeen: new Date() });
+    // Receipt is independent from opening/reading a conversation. Reconnecting
+    // recipients acknowledge pending messages without marking any as read.
+    const conversations = await Conversation.findAll({
+      ...(identity.role === "member" ? { where: { userId: identity.id } } : {}),
+      attributes: ["id", "userId"],
+    });
+    const conversationIds = conversations.map((c) => c.get("id"));
+    const [delivered] = await MessageRecord.update({ status: "delivered" }, { where: {
+      conversationId: { [Op.in]: conversationIds },
+      senderRole: { [Op.ne]: identity.role }, status: "sent",
+    } });
+    if (delivered) for (const c of conversations) notifyConversation(c.get("id") as string, c.get("userId") as string);
     // Only agents see all member presence; members only see support presence.
     io?.to("admins").emit("presence", { accountId: identity.id });
     if (identity.role === "admin") io?.emit("presence", { role: "admin" });

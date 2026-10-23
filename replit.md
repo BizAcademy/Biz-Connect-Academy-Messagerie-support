@@ -1,4 +1,4 @@
-# Biz Connect Academy — Support
+# BCA Messenger
 
 Messagerie privée française pour les membres de l’académie et les agents support.
 
@@ -27,6 +27,13 @@ Messagerie privée française pour les membres de l’académie et les agents su
 - Une instance Node : présence et limites en mémoire. Adapter avant multi-instance.
 
 ## Consignes produit
+
+- Nom de l’application : BCA Messenger.
+- Connexion commune, sans mode ni bouton Équipe. Le rôle support vient uniquement
+  de la table admins ; aucun accès admin de démonstration.
+- Photo de l’expéditeur au début de chaque message reçu, avec initiales si absente.
+- Coches : une blanche non reçu, deux blanches reçu non lu, deux or #D4AF37 lu.
+- Les membres écrivent exclusivement au support, jamais entre eux.
 
 - Interface française, style Telegram ; bulles sortantes bleues #1E5EFF,
   entrantes vertes #16A34A ; or #D4AF37 pour accents et non-lus.

@@ -21,6 +21,11 @@ export async function client(role) {
     },
   };
   await api.call("/auth/session");
-  assert.equal((await api.call("/auth/demo", { role })).status, 200);
+  if (role === "admin") {
+    assert(process.env.TEST_ADMIN_USERNAME && process.env.TEST_ADMIN_PASSWORD, "Configure TEST_ADMIN_USERNAME and TEST_ADMIN_PASSWORD for admin tests.");
+    const result = await api.call("/auth/login", { username: process.env.TEST_ADMIN_USERNAME, credential: process.env.TEST_ADMIN_PASSWORD });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.account.role, "admin");
+  } else assert.equal((await api.call("/auth/demo", { role: "member" })).status, 200);
   return api;
 }

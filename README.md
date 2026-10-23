@@ -1,4 +1,4 @@
-# Biz Connect Academy — Messagerie support
+# BCA Messenger
 
 Application de messagerie privée en français, React/Vite + Express + Socket.IO,
 PostgreSQL et Sequelize. PWA installable avec Web Push, images et vocaux privés.
@@ -7,7 +7,11 @@ PostgreSQL et Sequelize. PWA installable avec Web Push, images et vocaux privés
 
 - Connexion membre avec nom d’utilisateur et numéro Biz Connect ; vérification
   isolée dans `artifacts/api-server/src/services/accounts.ts`.
-- Connexion administrateur distincte, bcrypt, accès JWT 15 minutes et jeton de
+- Connexion commune sans sélecteur Équipe : le serveur reconnaît les administrateurs
+  enregistrés dans la table `admins`. Un rôle envoyé par le navigateur ne donne
+  aucun privilège. Les administrateurs utilisent leur mot de passe, les membres
+  leur numéro Biz Connect Academy.
+- Comptes administrateur protégés par bcrypt, accès JWT 15 minutes et jeton de
   renouvellement opaque rotatif 30 jours ; cookies httpOnly, Secure en production.
 - Conversation unique côté membre, boîte multi-agents côté support, recherche,
   favoris, filtres, non-lus, présence, saisie en cours et coches envoyé/reçu/lu.
@@ -45,7 +49,9 @@ pnpm --filter @workspace/db run push
 pnpm --filter @workspace/api-server run seed:demo
 ```
 
-Ouvrir l’aperçu puis **Démo membre** ou **Démo équipe**. Ces accès sont explicitement
+Ouvrir l’aperçu puis **Démo membre**. L’accès de démonstration administrateur est
+désactivé ; un administrateur doit être désigné dans la base puis utiliser le
+formulaire commun. Cet accès membre de démonstration est explicitement
 réservés au développement et la route démo renvoie 404 en production, même si la
 variable `ENABLE_DEMO` vaut true. Les comptes de démonstration ont des identifiants
 aléatoires non affichés et ne servent pas de comptes administrateur de production.
@@ -205,6 +211,10 @@ node artifacts/api-server/test/pwa-security.mjs
 
 Ces scripts vérifient l’API contre le proxy de développement et ajoutent quelques
 messages/fichiers techniques aux comptes de démo. Ne pas les lancer en production.
+Les anciens tests multi-rôles demandent `TEST_ADMIN_USERNAME` et
+`TEST_ADMIN_PASSWORD` dans l’environnement sécurisé. Le test ciblé
+`pnpm --filter @workspace/api-server exec tsx test/bca-messenger.ts` crée et
+supprime ses propres comptes temporaires, sans afficher leurs identifiants.
 La réception push réelle, le microphone et l’installation doivent être validés
 sur les appareils ciblés ; un test serveur ne remplace pas ce contrôle.
 

@@ -30,7 +30,7 @@ export function SummaryEffects() {
   useEffect(() => {
     if (!data) return;
     const n = data.unreadMessages;
-    document.title = n > 0 ? `(${n}) Biz Connect Academy` : "Biz Connect Academy";
+    document.title = n > 0 ? `(${n}) BCA Messenger` : "BCA Messenger";
     const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
     if (n > 0) void nav.setAppBadge?.(n).catch(() => undefined);
     else void nav.clearAppBadge?.().catch(() => undefined);
@@ -39,7 +39,7 @@ export function SummaryEffects() {
   }, [data]);
   useEffect(
     () => () => {
-      document.title = "Biz Connect Academy";
+      document.title = "BCA Messenger";
     },
     [],
   );

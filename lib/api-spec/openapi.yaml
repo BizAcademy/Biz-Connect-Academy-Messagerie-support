@@ -233,16 +233,15 @@ components:
         demoAvailable: { type: boolean }
     LoginInput:
       type: object
-      required: [role, username, credential]
+      required: [username, credential]
       properties:
-        role: { type: string, enum: [member, admin] }
         username: { type: string, minLength: 1, maxLength: 80 }
         credential: { type: string, minLength: 1, maxLength: 200 }
     DemoInput:
       type: object
       required: [role]
       properties:
-        role: { type: string, enum: [member, admin] }
+        role: { type: string, enum: [member] }
     Conversation:
       type: object
       required: [id, userId, username, phone, avatarUrl, lastMessage, lastMessageAt, unreadCount, favorite, online, lastSeen, messageCount]
@@ -276,12 +275,14 @@ components:
         favorite: { type: boolean }
     Message:
       type: object
-      required: [id, conversationId, senderId, senderRole, type, content, fileUrl, duration, status, createdAt]
+      required: [id, conversationId, senderId, senderRole, senderName, senderAvatarUrl, type, content, fileUrl, duration, status, createdAt]
       properties:
         id: { type: string }
         conversationId: { type: string }
         senderId: { type: string }
         senderRole: { type: string, enum: [member, admin] }
+        senderName: { type: string }
+        senderAvatarUrl: { type: [string, "null"] }
         type: { type: string, enum: [text, image, voice] }
         content: { type: string }
         fileUrl: { type: [string, "null"] }

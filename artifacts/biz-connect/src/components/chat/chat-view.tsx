@@ -11,15 +11,16 @@ import {
 import { formatDayLabel, formatTime, linkify } from "@/lib/chat-utils";
 import { cn } from "@/lib/utils";
 import { useRealtime } from "@/components/realtime";
-import { AudioPlayer, ImageThumb, ImageViewer } from "./media";
+import { AudioPlayer, ImageThumb, ImageViewer, UserAvatar } from "./media";
 import { Composer } from "./composer";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function Ticks({ status }: { status: Message["status"] }) {
-  if (status === "sent") return <Check className="h-3.5 w-3.5 text-white/70" data-testid="status-sent" />;
+  if (status === "sent") return <Check aria-label="Envoyé, pas encore reçu" className="h-3.5 w-3.5 text-white" data-testid="status-sent" />;
   return (
     <CheckCheck
-      className={cn("h-3.5 w-3.5", status === "read" ? "text-[#F5DC8A]" : "text-white/70")}
+      aria-label={status === "read" ? "Lu" : "Reçu, pas encore lu"}
+      className={cn("h-3.5 w-3.5", status === "read" ? "text-[#D4AF37]" : "text-white")}
       data-testid={`status-${status}`}
     />
   );
@@ -44,6 +45,11 @@ function Bubble({
   );
   return (
     <div className={cn("flex anim-bubble", mine ? "justify-end" : "justify-start", tail ? "mb-2" : "mb-0.5")} data-testid={`message-${m.id}`}>
+      {!mine && (
+        <div className="mr-2 mt-1 shrink-0" data-testid={`sender-avatar-${m.id}`} title={m.senderName}>
+          <UserAvatar name={m.senderName} src={m.senderAvatarUrl} size={30} />
+        </div>
+      )}
       <div
         className={cn(
           "relative max-w-[82%] px-3 py-1.5 text-[15px] leading-[1.4] text-white shadow-[0_1px_1px_rgba(11,27,63,0.12)] sm:max-w-[68%]",

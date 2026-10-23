@@ -19,7 +19,6 @@ export * from './inboxSummary';
 export * from './listConversationsFilter';
 export * from './listConversationsParams';
 export * from './loginInput';
-export * from './loginInputRole';
 export * from './message';
 export * from './messageInput';
 export * from './messageInputType';

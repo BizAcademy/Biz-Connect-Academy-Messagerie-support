@@ -1,17 +1,13 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { AlertCircle, ArrowRight, Eye, EyeOff, Headset, Loader2, Lock, UserRound } from "lucide-react";
+import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetSessionQueryKey, useDemoLogin, useLogin, type Session } from "@workspace/api-client-react";
 import { errorMessage, setCsrfToken } from "@/lib/api-fetch";
-import { cn } from "@/lib/utils";
-
-type Role = "member" | "admin";
 
 export default function LoginPage({ session }: { session: Session | undefined }) {
   const qc = useQueryClient();
   const [, navigate] = useLocation();
-  const [role, setRole] = useState<Role>("member");
   const [username, setUsername] = useState("");
   const [credential, setCredential] = useState("");
   const [show, setShow] = useState(false);
@@ -37,13 +33,10 @@ export default function LoginPage({ session }: { session: Session | undefined })
       setError("Renseignez les deux champs.");
       return;
     }
-    login.mutate({ data: { role, username: username.trim(), credential: credential.trim() } });
+    login.mutate({ data: { username: username.trim(), credential } });
   };
 
-  const labels =
-    role === "member"
-      ? { user: "Nom d'utilisateur Biz Connect Academy", cred: "Numéro Biz Connect Academy", credType: "text", mode: "numeric" as const }
-      : { user: "Nom d'utilisateur", cred: "Mot de passe", credType: show ? "text" : "password", mode: "text" as const };
+  const labels = { user: "Nom d'utilisateur Biz Connect Academy", cred: "Numéro Biz Connect Academy ou mot de passe", credType: show ? "text" : "password" };
 
   return (
     <div className="grain relative min-h-[100dvh] overflow-hidden bg-[#0B1B3F] text-white">
@@ -59,12 +52,12 @@ export default function LoginPage({ session }: { session: Session | undefined })
         <section className="rise">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#D4AF37] font-display text-2xl text-[#0B1B3F]">B</div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-white/60">Biz Connect Academy</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-white/60">BCA Messenger</div>
           </div>
           <h1 className="mt-8 font-display text-[44px] leading-[1.02] md:text-[68px]">
             Une ligne directe
             <br />
-            <span className="italic text-[#D4AF37]">avec votre équipe.</span>
+            <span className="italic text-[#D4AF37]">avec votre support.</span>
           </h1>
           <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/65">
             Une messagerie privée, réservée aux membres de l'académie. De vraies personnes vous répondent, ici, sans détour.
@@ -78,32 +71,7 @@ export default function LoginPage({ session }: { session: Session | undefined })
 
         <section className="rise w-full rounded-[28px] bg-card p-6 text-card-foreground shadow-[0_40px_80px_-30px_rgba(0,0,0,0.6)] md:p-8" style={{ animationDelay: "120ms" }}>
           <h2 className="font-display text-2xl">Connexion</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Choisissez votre accès.</p>
-
-          <div className="relative mt-5 grid grid-cols-2 rounded-2xl bg-muted p-1" role="tablist">
-            <span
-              className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-xl bg-card shadow-sm transition-transform duration-300"
-              style={{ transform: role === "admin" ? "translateX(100%)" : "none" }}
-            />
-            {(["member", "admin"] as Role[]).map((r) => (
-              <button
-                key={r}
-                type="button"
-                role="tab"
-                aria-selected={role === r}
-                onClick={() => {
-                  setRole(r);
-                  setError(null);
-                  setCredential("");
-                }}
-                className={cn("relative z-10 flex items-center justify-center gap-2 py-2 text-sm font-semibold transition-colors", role === r ? "text-foreground" : "text-muted-foreground")}
-                data-testid={`tab-role-${r}`}
-              >
-                {r === "member" ? <UserRound className="h-4 w-4" /> : <Headset className="h-4 w-4" />}
-                {r === "member" ? "Membre" : "Équipe"}
-              </button>
-            ))}
-          </div>
+          <p className="mt-1 text-sm text-muted-foreground">Connectez-vous à BCA Messenger. Votre accès est reconnu automatiquement.</p>
 
           <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
             <label className="block">
@@ -125,13 +93,12 @@ export default function LoginPage({ session }: { session: Session | undefined })
                   value={credential}
                   onChange={(e) => setCredential(e.target.value)}
                   type={labels.credType}
-                  inputMode={labels.mode}
-                  autoComplete={role === "admin" ? "current-password" : "off"}
+                  autoComplete="current-password"
                   maxLength={200}
                   className="h-12 w-full rounded-xl border bg-background px-4 pr-12 text-[15px] outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
                   data-testid="input-credential"
                 />
-                {role === "admin" && (
+                {(
                   <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground hover:bg-muted" aria-label={show ? "Masquer" : "Afficher"} data-testid="button-toggle-password">
                     {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -158,12 +125,9 @@ export default function LoginPage({ session }: { session: Session | undefined })
           {session?.demoAvailable && (
             <div className="mt-6 rounded-2xl border border-dashed border-[#D4AF37]/60 p-4" data-testid="panel-demo">
               <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#B8952A] dark:text-[#D4AF37]">Environnement de démonstration</div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-3">
                 <button type="button" disabled={busy} onClick={() => { setError(null); demo.mutate({ data: { role: "member" } }); }} className="rounded-xl bg-secondary px-3 py-2.5 text-sm font-semibold transition hover:bg-secondary/70 active:scale-[0.98] disabled:opacity-60" data-testid="button-demo-member">
                   Démo membre
-                </button>
-                <button type="button" disabled={busy} onClick={() => { setError(null); demo.mutate({ data: { role: "admin" } }); }} className="rounded-xl bg-secondary px-3 py-2.5 text-sm font-semibold transition hover:bg-secondary/70 active:scale-[0.98] disabled:opacity-60" data-testid="button-demo-admin">
-                  Démo équipe
                 </button>
               </div>
             </div>

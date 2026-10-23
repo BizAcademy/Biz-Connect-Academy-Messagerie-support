@@ -5,10 +5,8 @@
  * Biz Connect Academy support messaging
  * OpenAPI spec version: 1.0.0
  */
-import type { LoginInputRole } from './loginInputRole';
 
 export interface LoginInput {
-  role: LoginInputRole;
   /**
      * @minLength 1
      * @maxLength 80

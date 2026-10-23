@@ -14,6 +14,9 @@ export interface Message {
   conversationId: string;
   senderId: string;
   senderRole: MessageSenderRole;
+  senderName: string;
+  /** @nullable */
+  senderAvatarUrl: string | null;
   type: MessageType;
   content: string;
   /** @nullable */

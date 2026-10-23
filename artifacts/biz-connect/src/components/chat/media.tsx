@@ -125,7 +125,7 @@ export function ImageViewer({ url, blob, onClose }: { url: string; blob: Blob; o
   };
   const share = async () => {
     try {
-      await navigator.share({ files: [file!], title: "Biz Connect Academy" });
+      await navigator.share({ files: [file!], title: "BCA Messenger" });
     } catch (e) {
       if ((e as Error).name !== "AbortError") toast({ title: "Partage impossible", variant: "destructive" });
     }

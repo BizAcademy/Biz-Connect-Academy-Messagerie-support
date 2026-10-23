@@ -36,16 +36,7 @@ export interface Session {
   demoAvailable: boolean;
 }
 
-export type LoginInputRole = typeof LoginInputRole[keyof typeof LoginInputRole];
-
-
-export const LoginInputRole = {
-  member: 'member',
-  admin: 'admin',
-} as const;
-
 export interface LoginInput {
-  role: LoginInputRole;
   /**
      * @minLength 1
      * @maxLength 80
@@ -63,7 +54,6 @@ export type DemoInputRole = typeof DemoInputRole[keyof typeof DemoInputRole];
 
 export const DemoInputRole = {
   member: 'member',
-  admin: 'admin',
 } as const;
 
 export interface DemoInput {
@@ -131,6 +121,9 @@ export interface Message {
   conversationId: string;
   senderId: string;
   senderRole: MessageSenderRole;
+  senderName: string;
+  /** @nullable */
+  senderAvatarUrl: string | null;
   type: MessageType;
   content: string;
   /** @nullable */

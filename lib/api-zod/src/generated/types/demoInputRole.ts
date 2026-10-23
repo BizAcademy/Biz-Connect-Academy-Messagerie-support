@@ -11,5 +11,4 @@ export type DemoInputRole = typeof DemoInputRole[keyof typeof DemoInputRole];
 
 export const DemoInputRole = {
   member: 'member',
-  admin: 'admin',
 } as const;

@@ -19,9 +19,11 @@ router.get("/auth/session", async (req, res) => {
 router.post("/auth/login", limiter, async (req, res) => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Veuillez renseigner vos identifiants." }); return; }
-  const { role, username, credential } = parsed.data;
-  const user = role === "member" ? await verifyAcademyMember(username.trim(), credential.trim())
-    : await Admin.findOne({ where: { username: username.trim() } });
+  const { username, credential } = parsed.data;
+  // Privileges come exclusively from the database, never a role sent by a client.
+  const admin = await Admin.findOne({ where: { username: username.trim() } });
+  const role = admin ? "admin" as const : "member" as const;
+  const user = admin || await verifyAcademyMember(username.trim(), credential);
   const valid = user && (role === "member" || await bcrypt.compare(credential, user.get("credentialHash") as string));
   if (!valid) {
     // Equalize missing-username attempts without recording personal identifiers.
@@ -38,8 +40,8 @@ router.post("/auth/demo", limiter, async (req, res) => {
   if (!demoAvailable) { res.status(404).json({ error: "Indisponible" }); return; }
   const parsed = DemoLoginBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Rôle invalide." }); return; }
-  const { role } = parsed.data;
-  const user = await (role === "admin" ? Admin : User).findOne({ where: { isDemo: true }, order: [["createdAt", "ASC"]] });
+  const role = "member" as const;
+  const user = await User.findOne({ where: { isDemo: true }, order: [["createdAt", "ASC"]] });
   if (!user) { res.status(503).json({ error: "Initialisez les comptes de démonstration avec le script seed." }); return; }
   const identity = { id: user.get("id") as string, role };
   await newSession(res, identity);

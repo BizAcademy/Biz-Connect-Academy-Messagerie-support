@@ -5,12 +5,13 @@ import { fileTypeFromBuffer } from "file-type";
 import { randomUUID } from "node:crypto";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import { PrivateFile, Admin } from "@workspace/db";
+import { PrivateFile, Admin, Conversation } from "@workspace/db";
 import { UpdateProfileBody, UpdateProfileResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { authorizeConversation } from "../services/conversations";
 import { storePrivate, readPrivate, removePrivate, probeAudio } from "../services/storage";
 import { publicAccount, accountModel } from "../services/accounts";
+import { notifyConversation } from "../services/realtime";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 1, fields: 3 } });
@@ -84,6 +85,11 @@ router.patch("/profile", requireAuth, async (req, res) => {
   const file = await PrivateFile.findOne({ where: { id: parsed.data.avatarFileId, ownerId: req.identity!.id, purpose: "avatar" } });
   if (!file) { res.status(404).json({ error: "Photo introuvable." }); return; }
   await accountModel(req.identity!.role).update({ avatarFileId: file.get("id") }, { where: { id: req.identity!.id } });
+  const affected = await Conversation.findAll({
+    ...(req.identity!.role === "member" ? { where: { userId: req.identity!.id } } : {}),
+    attributes: ["id", "userId"],
+  });
+  for (const c of affected) notifyConversation(c.get("id") as string, c.get("userId") as string);
   res.json(UpdateProfileResponse.parse(await publicAccount(req.identity!)));
 });
 export default router;

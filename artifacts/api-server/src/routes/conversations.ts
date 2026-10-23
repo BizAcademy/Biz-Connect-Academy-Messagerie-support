@@ -7,7 +7,7 @@ import {
   UpdateConversationBody, SendMessageBody, GetMessagesResponse, SendMessageResponse,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
-import { authorizeConversation, inbox, serializeMessage, deliverPending } from "../services/conversations";
+import { authorizeConversation, inbox, serializeMessages, deliverPending } from "../services/conversations";
 import { notifyConversation, isOnline, isSupportOnline } from "../services/realtime";
 import { sendMessagePush } from "../services/push";
 
@@ -51,7 +51,7 @@ router.get("/conversations/:id/messages", async (req, res) => {
     where: { conversationId: c.get("id") }, order: [["createdAt", "ASC"]],
   });
   // Loading does not mark read: the visible client explicitly acknowledges it.
-  res.json(GetMessagesResponse.parse(rows.map(serializeMessage)));
+  res.json(GetMessagesResponse.parse(await serializeMessages(rows)));
   if (delivered) notifyConversation(c.get("id") as string, c.get("userId") as string);
 });
 router.post("/conversations/:id/messages", async (req, res) => {
@@ -80,7 +80,7 @@ router.post("/conversations/:id/messages", async (req, res) => {
     await c.update({ lastMessageAt: new Date() }, { transaction });
     return message;
   });
-  const message = serializeMessage(created);
+  const [message] = await serializeMessages([created]);
   notifyConversation(c.get("id") as string, c.get("userId") as string);
   void sendMessagePush(identity, c.get("userId") as string, message).catch((err) => req.log.warn({ err }, "Push failed"));
   res.status(201).json(SendMessageResponse.parse(message));

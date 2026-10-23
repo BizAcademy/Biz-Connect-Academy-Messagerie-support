@@ -133,7 +133,7 @@ export function SettingsDialog({ open, onOpenChange, account }: { open: boolean;
           <DialogHeader className="relative text-left">
             <DialogTitle className="font-display text-2xl font-medium">Profil et préférences</DialogTitle>
             <DialogDescription className="text-white/60">
-              {isAdmin ? "Compte équipe" : "Membre"} · Biz Connect Academy
+              {isAdmin ? "Administrateur · Support" : "Membre"} · BCA Messenger
             </DialogDescription>
           </DialogHeader>
           <div className="relative mt-5 flex items-center gap-4">

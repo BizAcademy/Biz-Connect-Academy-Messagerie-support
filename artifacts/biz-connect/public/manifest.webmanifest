@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Biz Connect Academy — Support",
-  "short_name": "Biz Connect",
-  "description": "Votre ligne directe avec l'équipe Biz Connect Academy.",
+  "name": "BCA Messenger",
+  "short_name": "BCA Messenger",
+  "description": "Votre messagerie privée avec le support Biz Connect Academy.",
   "lang": "fr",
   "start_url": "/",
   "scope": "/",

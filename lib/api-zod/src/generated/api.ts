@@ -33,7 +33,6 @@ export const loginBodyCredentialMax = 200;
 
 
 export const LoginBody = zod.object({
-  "role": zod.enum(['member', 'admin']),
   "username": zod.string().min(1).max(loginBodyUsernameMax),
   "credential": zod.string().min(1).max(loginBodyCredentialMax)
 })
@@ -55,7 +54,7 @@ export const LoginResponse = zod.object({
  * Development-only test accounts; unavailable in production
  */
 export const DemoLoginBody = zod.object({
-  "role": zod.enum(['member', 'admin'])
+  "role": zod.enum(['member'])
 })
 
 export const DemoLoginResponse = zod.object({
@@ -143,6 +142,8 @@ export const GetMessagesResponseItem = zod.object({
   "conversationId": zod.string(),
   "senderId": zod.string(),
   "senderRole": zod.enum(['member', 'admin']),
+  "senderName": zod.string(),
+  "senderAvatarUrl": zod.string().nullable(),
   "type": zod.enum(['text', 'image', 'voice']),
   "content": zod.string(),
   "fileUrl": zod.string().nullable(),
@@ -176,6 +177,8 @@ export const SendMessageResponse = zod.object({
   "conversationId": zod.string(),
   "senderId": zod.string(),
   "senderRole": zod.enum(['member', 'admin']),
+  "senderName": zod.string(),
+  "senderAvatarUrl": zod.string().nullable(),
   "type": zod.enum(['text', 'image', 'voice']),
   "content": zod.string(),
   "fileUrl": zod.string().nullable(),
