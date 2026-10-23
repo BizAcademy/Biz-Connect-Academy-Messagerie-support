@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "Biz Connect Academy — Support",
+  "short_name": "Biz Connect",
+  "description": "Votre ligne directe avec l'équipe Biz Connect Academy.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0B1B3F",
+  "theme_color": "#0B1B3F",
+  "categories": ["communication", "education"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

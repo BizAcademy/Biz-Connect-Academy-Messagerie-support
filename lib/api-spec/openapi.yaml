@@ -1,36 +1,335 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: API specification
+  version: 1.0.0
+  description: Biz Connect Academy support messaging
 servers:
   - url: /api
-    description: Base API path
-tags:
-  - name: health
-    description: Health operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
-      tags: [health]
-      summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
           content:
             application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+  /auth/session:
+    get:
+      operationId: getSession
+      responses:
+        "200":
+          description: Session and CSRF token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+  /auth/login:
+    post:
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginInput" }
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+  /auth/demo:
+    post:
+      operationId: demoLogin
+      description: Development-only test accounts; unavailable in production
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DemoInput" }
+      responses:
+        "200":
+          description: Test account session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+  /auth/refresh:
+    post:
+      operationId: refreshSession
+      responses:
+        "200":
+          description: Rotated session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+  /auth/logout:
+    post:
+      operationId: logout
+      responses:
+        "200":
+          description: Signed out
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Success" }
+  /conversations:
+    get:
+      operationId: listConversations
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: filter, in: query, schema: { type: string, enum: [all, unread, read, favorites] } }
+      responses:
+        "200":
+          description: Authorized conversations
+          content:
+            application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                type: array
+                items: { $ref: "#/components/schemas/Conversation" }
+  /conversations/summary:
+    get:
+      operationId: getSummary
+      responses:
+        "200":
+          description: Inbox counters
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InboxSummary" }
+  /conversations/{id}:
+    patch:
+      operationId: updateConversation
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConversationUpdate" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Success" }
+  /conversations/{id}/messages:
+    get:
+      operationId: getMessages
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Messages ordered by creation time
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Message" }
+    post:
+      operationId: sendMessage
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MessageInput" }
+      responses:
+        "201":
+          description: Message saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+  /conversations/{id}/read:
+    post:
+      operationId: markRead
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Success" }
+  /files:
+    post:
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: "#/components/schemas/FileInput" }
+      responses:
+        "201":
+          description: Private file saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrivateFile" }
+  /profile:
+    patch:
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileUpdate" }
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+  /push/config:
+    get:
+      operationId: getPushConfig
+      responses:
+        "200":
+          description: Push configuration
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushConfig" }
+  /push/subscriptions:
+    post:
+      operationId: subscribePush
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushInput" }
+      responses:
+        "200":
+          description: Subscribed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Success" }
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
-        status:
-          type: string
-      required:
-        - status
-
+        status: { type: string }
+    Success:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+    Account:
+      type: object
+      required: [id, username, role, phone, avatarUrl]
+      properties:
+        id: { type: string }
+        username: { type: string }
+        role: { type: string, enum: [member, admin] }
+        phone: { type: string }
+        avatarUrl: { type: [string, "null"] }
+    Session:
+      type: object
+      required: [account, csrfToken, demoAvailable]
+      properties:
+        account:
+          oneOf:
+            - { $ref: "#/components/schemas/Account" }
+            - { type: "null" }
+        csrfToken: { type: string }
+        demoAvailable: { type: boolean }
+    LoginInput:
+      type: object
+      required: [role, username, credential]
+      properties:
+        role: { type: string, enum: [member, admin] }
+        username: { type: string, minLength: 1, maxLength: 80 }
+        credential: { type: string, minLength: 1, maxLength: 200 }
+    DemoInput:
+      type: object
+      required: [role]
+      properties:
+        role: { type: string, enum: [member, admin] }
+    Conversation:
+      type: object
+      required: [id, userId, username, phone, avatarUrl, lastMessage, lastMessageAt, unreadCount, favorite, online, lastSeen, messageCount]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        username: { type: string }
+        phone: { type: string }
+        avatarUrl: { type: [string, "null"] }
+        lastMessage: { type: string }
+        lastMessageAt: { type: string, format: date-time }
+        unreadCount: { type: integer }
+        favorite: { type: boolean }
+        online: { type: boolean }
+        lastSeen: { type: [string, "null"] }
+        messageCount: { type: integer }
+    InboxSummary:
+      type: object
+      required: [total, unread, unreadMessages, read, favorites, online]
+      properties:
+        total: { type: integer }
+        unread: { type: integer }
+        unreadMessages: { type: integer }
+        read: { type: integer }
+        favorites: { type: integer }
+        online: { type: integer }
+    ConversationUpdate:
+      type: object
+      required: [favorite]
+      properties:
+        favorite: { type: boolean }
+    Message:
+      type: object
+      required: [id, conversationId, senderId, senderRole, type, content, fileUrl, duration, status, createdAt]
+      properties:
+        id: { type: string }
+        conversationId: { type: string }
+        senderId: { type: string }
+        senderRole: { type: string, enum: [member, admin] }
+        type: { type: string, enum: [text, image, voice] }
+        content: { type: string }
+        fileUrl: { type: [string, "null"] }
+        duration: { type: [number, "null"] }
+        status: { type: string, enum: [sent, delivered, read] }
+        createdAt: { type: string, format: date-time }
+    MessageInput:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [text, image, voice] }
+        content: { type: string, maxLength: 10000 }
+        fileId: { type: string, format: uuid }
+        duration: { type: number, minimum: 0, maximum: 300 }
+    FileInput:
+      type: object
+      required: [file, purpose]
+      properties:
+        file: { type: string, format: binary }
+        purpose: { type: string, enum: [image, voice, avatar] }
+        conversationId: { type: string }
+    PrivateFile:
+      type: object
+      required: [id, url, mime, size]
+      properties:
+        id: { type: string }
+        url: { type: string }
+        mime: { type: string }
+        size: { type: integer }
+    ProfileUpdate:
+      type: object
+      required: [avatarFileId]
+      properties:
+        avatarFileId: { type: string, format: uuid }
+    PushConfig:
+      type: object
+      required: [enabled, publicKey]
+      properties:
+        enabled: { type: boolean }
+        publicKey: { type: [string, "null"] }
+    PushInput:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint: { type: string, format: uri }
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string }
+            auth: { type: string }

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Biz Connect Academy"
+description = "Messagerie de support privée en français, avec espace membre, boîte de réception support, messages en temps réel et PWA installable."
+version = "1.0.0"
+id = "artifacts/biz-connect"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19698
+
+[services.development]
+run = "pnpm --filter @workspace/biz-connect run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/biz-connect", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/biz-connect/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19698"
+BASE_PATH = "/"
