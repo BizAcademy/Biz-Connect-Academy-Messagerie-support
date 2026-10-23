@@ -11,11 +11,18 @@ globalThis.require = createRequire(import.meta.url);
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
 async function buildAll() {
+  const precompiled = process.env.BCA_BUILD_MODE === "plesk";
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
   await esbuild({
-    entryPoints: [path.resolve(artifactDir, "src/index.ts")],
+    entryPoints: {
+      index: path.resolve(artifactDir, "src/index.ts"),
+      ...(precompiled ? {
+        admin: path.resolve(artifactDir, "src/scripts/seed.ts"),
+        member: path.resolve(artifactDir, "src/scripts/provision-member.ts"),
+      } : {}),
+    },
     platform: "node",
     bundle: true,
     format: "esm",
@@ -101,7 +108,8 @@ async function buildAll() {
       "puppeteer-core",
       "electron",
     ],
-    sourcemap: "linked",
+    sourcemap: precompiled ? false : "linked",
+    minify: precompiled,
     plugins: [
       // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
       esbuildPluginPino({ transports: ["pino-pretty"] })

@@ -1,0 +1,90 @@
+import assert from "node:assert/strict";
+import { spawn, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { mkdtemp, cp, rm, readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import net from "node:net";
+import { randomBytes } from "node:crypto";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const temp = await mkdtemp(path.join(os.tmpdir(), "bca-plesk-"));
+const app = path.join(temp, "application");
+const privateStorage = path.join(temp, "private-storage");
+let child;
+function run(args, cwd = app, env = process.env) {
+  const result = spawnSync(process.execPath, args, { cwd, env, encoding: "utf8", timeout: 120000 });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  return result.stdout;
+}
+try {
+  run(["plesk/verify.cjs", "--sources"], root);
+  await cp(path.join(root, "plesk"), app, {
+    recursive: true,
+    filter: (file) => !["node_modules", ".env", ".runtime-dependencies.sha256"].includes(path.basename(file)),
+  });
+  const env = { ...process.env, NODE_ENV: "production", SESSION_SECRET: randomBytes(32).toString("hex"),
+    DATABASE_URL: "postgresql://unused:unused@127.0.0.1:1/unused", STORAGE_DIR: privateStorage, APP_ORIGIN: "https://bca.test" };
+  for (const k of Object.keys(env)) if (k.startsWith("CYBRANCEE_DB_") || k.startsWith("ADMIN_") || k.startsWith("MEMBER_")) delete env[k];
+  run(["deploy.cjs"], app, env);
+  const require = createRequire(path.join(app, "package.json"));
+  for (const name of ["sequelize", "pg", "sharp"]) {
+    assert(require.resolve(name).startsWith(path.join(app, "node_modules")), "Must not depend on workspace node_modules");
+  }
+  assert.match(run(["deploy.cjs"], app, env), /aucune installation nécessaire/);
+  const probe = net.createServer();
+  await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const port = probe.address().port;
+  await new Promise((resolve) => probe.close(resolve));
+  let logs = "";
+  child = spawn(process.execPath, ["app.cjs"], { cwd: app, env: { ...env, PORT: String(port) }, stdio: ["ignore", "pipe", "pipe"] });
+  child.stdout.on("data", (b) => { logs += b; });
+  child.stderr.on("data", (b) => { logs += b; });
+  const base = `http://127.0.0.1:${port}`;
+  let ready = false;
+  for (let i = 0; i < 80; i++) {
+    if (child.exitCode !== null) throw new Error("Isolated startup failed: " + logs);
+    try { if ((await fetch(base + "/api/healthz")).ok) { ready = true; break; } } catch {}
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert(ready, "Compiled server did not start");
+  const headers = { "x-forwarded-proto": "https", "x-forwarded-host": "bca.test" };
+  const response = await fetch(base + "/", { headers });
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /BCA Messenger/);
+  const asset = html.match(/src="(\/assets\/[^"]+\.js)"/)?.[1];
+  assert(asset); assert.equal((await fetch(base + asset, { headers })).status, 200);
+  const manifest = await (await fetch(base + "/manifest.webmanifest", { headers })).json();
+  assert.equal(manifest.name, "BCA Messenger");
+  assert.equal((await fetch(base + "/sw.js", { headers })).status, 200);
+  const sessionResponse = await fetch(base + "/api/auth/session", { headers });
+  const session = await sessionResponse.json();
+  assert.equal(sessionResponse.status, 200); assert.equal(session.demoAvailable, false);
+  const cookie = sessionResponse.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  const demo = await fetch(base + "/api/auth/demo", { method: "POST",
+    headers: { ...headers, cookie, "content-type": "application/json", "x-csrf-token": session.csrfToken },
+    body: JSON.stringify({ role: "member" }) });
+  assert.equal(demo.status, 404);
+  assert.equal((await fetch(base + "/")).status, 426, "HTTPS remains mandatory in production");
+  const hidden = await (await fetch(base + "/server/index.mjs", { headers })).text();
+  assert.match(hidden, /<!doctype html>/i, "Server bundle must never be exposed as a static asset");
+  child.kill("SIGTERM");
+  await new Promise((resolve) => child.once("exit", resolve));
+  child = null;
+
+  // The five database fields are encoded safely; no DB connection or values logged.
+  run(["-e", `require('./environment.cjs')(); const u=new URL(process.env.DATABASE_URL); if(decodeURIComponent(u.password)!=='p@ss:/ %') process.exit(1);`], app,
+    { ...env, CYBRANCEE_DB_HOST: "127.0.0.1", CYBRANCEE_DB_PORT: "5432", CYBRANCEE_DB_NAME: "bca", CYBRANCEE_DB_USER: "test", CYBRANCEE_DB_PASSWORD: "p@ss:/ %" });
+  const runtimePackage = JSON.parse(await readFile(path.join(app, "package.json"), "utf8"));
+  assert(!runtimePackage.devDependencies && !runtimePackage.scripts.build && !runtimePackage.scripts.postinstall);
+  await writeFile(path.join(app, "server/index.mjs"), "// incomplete deployment");
+  const broken = spawnSync(process.execPath, ["app.cjs"], { cwd: app, env, encoding: "utf8", timeout: 5000 });
+  assert.equal(broken.status, 1, "Incomplete release must fail instead of compiling");
+  assert.match(broken.stderr, /incomplète ou modifiée/);
+  console.log("PASS: isolated prebuilt startup, three runtime dependencies installed without a build, cached deployment, HTML/assets/PWA/API, production HTTPS, demos disabled, safe database URL encoding, and incomplete release rejected.");
+} finally {
+  if (child) { child.kill("SIGTERM"); await new Promise((resolve) => child.once("exit", resolve)); }
+  await rm(temp, { recursive: true, force: true });
+}

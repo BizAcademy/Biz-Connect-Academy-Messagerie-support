@@ -70,7 +70,7 @@ app.use("/api", csrfProtection);
 app.use("/api", router);
 app.use("/api", (_req, res) => { res.status(404).json({ error: "Route introuvable." }); });
 if (process.env.SERVE_STATIC === "true") {
-  const publicRoot = path.resolve(process.cwd(), "artifacts/biz-connect/dist/public");
+  const publicRoot = path.resolve(process.env.STATIC_DIR || path.join(process.cwd(), "artifacts/biz-connect/dist/public"));
   app.use(express.static(publicRoot, { setHeaders(res, file) {
     if (file.endsWith("sw.js") || file.endsWith("index.html")) res.setHeader("Cache-Control", "no-cache");
   } }));

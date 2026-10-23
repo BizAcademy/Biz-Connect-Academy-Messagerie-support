@@ -77,11 +77,13 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/drizzle/0000_outgoing_mentor.s
 npx pnpm --filter @workspace/api-server run seed
 # Renseigner ADMIN_USERNAME et ADMIN_PASSWORD (14 caractères minimum)
 # dans l'environnement sécurisé avant le seed, puis retirer ADMIN_PASSWORD.
+npm run build:plesk
+node plesk/deploy.cjs
 npm start
 ```
 
-`npm start` construit les fichiers si nécessaire et démarre le serveur unique sur
-`process.env.PORT` (3000 par défaut), avec API, Socket.IO et frontend. Les données
+`npm start` démarre la distribution **déjà compilée** dans `plesk/`, sans build,
+sur `process.env.PORT` (3000 par défaut), avec API, Socket.IO et frontend. Les données
 de `.env` sont chargées pour cette commande. Pour les scripts seed/provisionnement
 en local, on peut utiliser `node --env-file=.env` avec le lanceur tsx :
 
@@ -96,7 +98,8 @@ et utiliser `npx pnpm --filter @workspace/api-server run seed`.
 Pour reconstruire après une modification :
 
 ```sh
-npm run build:standalone
+npm run build:plesk
+node plesk/deploy.cjs
 npm start
 ```
 
@@ -117,41 +120,75 @@ Guide pour une offre autorisant Node.js, PostgreSQL, WebSocket et un disque
 persistant. **Non testé sur un compte Cybrancee réel** : les menus, versions et
 capacités dépendent de l’offre. Vérifier leur disponibilité avec l’hébergeur.
 
-1. **Domaine et SSL** : ajouter le domaine dans Plesk, activer un certificat SSL
-   valide et forcer la redirection HTTP → HTTPS.
-2. **Application Node.js** : dans la rubrique Node.js du domaine, sélectionner
-   Node 22+, le mode Production et la racine du dépôt comme Application Root.
-   Renseigner `app.cjs` comme fichier de démarrage Passenger.
-3. **Base** : créer une base PostgreSQL et un utilisateur dédié avec droits limités
-   à cette base. Si l’offre n’a que MySQL, ce code ne peut pas fonctionner sans
-   adaptation : choisir une base PostgreSQL externe ou une offre compatible.
-4. **Variables** : ajouter `DATABASE_URL`, un `SESSION_SECRET` aléatoire de 32+
-   caractères, `NODE_ENV=production`, `APP_ORIGIN=https://votre-domaine` (sans `/`
-   final), `ENABLE_DEMO=false`, `STORAGE_DIR` absolu et `VAPID_SUBJECT`.
-   Ajouter `FILE_ENCRYPTION_KEY` si une clé de fichiers indépendante est souhaitée.
-5. **Stockage** : créer le répertoire `STORAGE_DIR` hors du Document Root, appartenant
-   à l’utilisateur du processus Node, permissions 700 pour le répertoire, 600 pour
-   les fichiers. Ne jamais exposer `/storage` via Nginx ou Apache.
-6. **Dépendances** : lancer `npm install` via Plesk ou le terminal. Installer
-   FFprobe via le mécanisme autorisé par l’offre ; renseigner `FFPROBE_PATH` si son
-   emplacement n’est pas dans PATH. Sans lui, les vocaux sont refusés explicitement.
-7. **Schéma externe** : appliquer le SQL initial ci-dessus une seule fois sur une
-   base vide. Pour les mises à jour, générer une migration, la relire et la tester
-   en préproduction avant de l’appliquer sur la base externe. Sauvegarder d’abord.
-8. **Compte support** : définir temporairement `ADMIN_USERNAME` et `ADMIN_PASSWORD`,
-   lancer le seed, puis retirer le mot de passe des variables du processus.
-9. **Build** : lancer `npm run build:standalone`. Le Document Root peut être
-   `artifacts/biz-connect/dist/public` si Passenger est bien activé pour toute
-   l’application ; ne pas utiliser la racine du dépôt comme dossier public.
-10. **Proxy/WebSocket** : activer le proxy HTTP et WebSocket pour `/api/socket.io/`,
-    transmettre `Upgrade`, `Connection`, le vrai `Host`, `X-Forwarded-Proto=https`
-    et `X-Forwarded-For`. Le serveur fait confiance à un niveau de proxy. Pour
-    plusieurs niveaux, adapter ce réglage aux adresses de proxy de confiance,
-    ne pas ouvrir le port Node directement à Internet.
-11. **Redémarrage** : cliquer sur Restart App. Vérifier `/api/healthz`, puis tester
-    un envoi entre deux navigateurs connectés avec des rôles différents.
-12. **Téléphone** : installer depuis le navigateur, autoriser les notifications,
-    fermer l’application et vérifier une notification entrante sur le téléphone.
+Le dossier **`plesk/` est une distribution autonome précompilée, incluse dans Git**.
+Les `dist/` intermédiaires restent ignorés. Ne pas envoyer `node_modules`, `.env`,
+les fichiers privés ou les secrets sur GitHub. Le build ne tourne jamais dans
+Passenger, au démarrage ou dans l'action « Deploy Now ».
+
+### Configuration initiale — une seule fois
+
+1. **Git et HTTPS** : connecter le dépôt GitHub dans Plesk, choisir son dossier
+   de déploiement et activer HTTPS. Ne pas exposer la racine du dépôt.
+2. **Node.js** : version **22 ou supérieure**, mode **Production**.
+   Pour un dépôt dans `/httpdocs` :
+   - Application Root : `/httpdocs/plesk`
+   - Document Root : `/httpdocs/plesk/public`
+   - Application Startup File : **`app.cjs`**
+   Garder un seul processus Node/Passenger pour la présence et Socket.IO.
+3. **Variables Plesk** : renseigner les paramètres de `plesk/.env.example` dans
+   les variables personnalisées Node.js. Les secrets Replit ne sont pas transférés
+   par GitHub. Choisir les cinq `CYBRANCEE_DB_*` **ou** `DATABASE_URL`, pas les deux.
+   PostgreSQL est obligatoire ; MySQL/MariaDB n'est pas compatible.
+   `SESSION_SECRET` (32 caractères minimum), `APP_ORIGIN` HTTPS sans `/` final et
+   `STORAGE_DIR` absolu sont requis. Conserver les clés de chiffrement après les
+   mises à jour, sinon les fichiers privés existants ne seront plus lisibles.
+4. **Stockage** : créer `STORAGE_DIR` hors du dépôt déployé et du Document Root,
+   par exemple `/var/www/vhosts/votre-domaine/private/bca-messenger`. Permissions
+   700, accessible en écriture à l'utilisateur Node. Ne jamais l'effacer au deploy.
+5. **Action de déploiement Git** : activer les actions supplémentaires et ajouter :
+
+   ```sh
+   cd /var/www/vhosts/VOTRE-DOMAINE/httpdocs
+   sh plesk/deploy.sh /opt/plesk/node/22/bin/node
+   ```
+
+   Adapter les deux chemins à votre installation et à la version Node sélectionnée
+   dans Plesk (par exemple `/opt/plesk/node/24/bin/node`). Cette action vérifie
+   les fichiers, installe **uniquement les dépendances d'exécution** si nécessaire
+   avec `npm ci --omit=dev`, puis conserve les dépendances pour les mises à jour
+   sans changement. **Ce n'est pas une compilation** : ni Vite, ni TypeScript,
+   ni pnpm, ni esbuild n'est utilisé sur le serveur. L'installation initiale reste
+   nécessaire pour les bibliothèques natives correspondant à Linux du serveur.
+6. **Base vide externe uniquement** : importer une seule fois `plesk/schema/initial.sql`.
+   Ne jamais réimporter ce schéma sur une base existante. Les migrations ultérieures
+   restent une opération explicite après sauvegarde ; aucune migration automatique
+   ni création de compte ne se produit au démarrage ou au déploiement.
+7. **Administrateur** : définir temporairement `ADMIN_USERNAME` et `ADMIN_PASSWORD`
+   (14 caractères minimum) dans un environnement sécurisé et exécuter
+   `node plesk/admin.cjs` depuis la racine du dépôt. Retirer ensuite ces deux
+   variables. La commande doit recevoir les mêmes variables d'environnement que
+   l'application ; le terminal ne reprend pas nécessairement les variables du
+   panneau Node.js. Alternative : `node admin.cjs` dans `plesk/` avec un `.env`
+   privé. Pour un membre : `node plesk/member.cjs`, avec `MEMBER_USERNAME`,
+   `MEMBER_NUMBER` et éventuellement `MEMBER_PHONE`. Aucun outil de build requis.
+8. **Vocaux et réseau** : installer FFprobe via le mécanisme autorisé par l'offre,
+   renseigner `FFPROBE_PATH` si nécessaire. Sans lui, les vocaux sont refusés.
+   Autoriser WebSocket et HTTP long-polling sur `/api/socket.io/`, transmettre
+   `Upgrade`, `Connection`, `Host`, `X-Forwarded-Proto=https` et `X-Forwarded-For`.
+   Un niveau de proxy est approuvé. Ne pas exposer le port Node directement.
+
+### Mises à jour — sans build dans Plesk
+
+1. **Avant le push GitHub**, dans l'environnement de développement :
+   `npm run build:plesk` puis `npm run verify:plesk`. Commiter le code **et** tout
+   le dossier `plesk/`, puis pousser. La version fournie est déjà construite.
+2. Dans Plesk : récupérer le dernier commit, cliquer **Deploy Now**, puis **Restart App**.
+3. Vérifier `https://votre-domaine/api/healthz` et une connexion membre/support.
+
+Le workflow GitHub `Verify precompiled Plesk release` contrôle l'intégrité et
+refuse une version compilée ne correspondant plus aux sources, sans compiler
+quoi que ce soit. `npm run test:plesk` teste la distribution dans un dossier isolé,
+sans les sources ni les dépendances du monorepo et sans toucher à la base.
 
 Socket.IO est attaché au même serveur HTTP que l’API, sur `/api/socket.io`.
 Le repli HTTP long-polling est conservé si WebSocket n’est pas disponible.

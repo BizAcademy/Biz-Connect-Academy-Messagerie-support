@@ -14,6 +14,14 @@ Messagerie privée française pour les membres de l’académie et les agents su
 
 ## Décisions
 
+- Hébergement de production demandé : Plesk/Cybrancee, pas Replit Core.
+- Livrer une distribution `plesk/` précompilée dans Git : après installation
+  initiale, GitHub → Plesk → Deploy Now + Restart, jamais de build dans Plesk.
+- Après tout changement applicatif, reconstruire `npm run build:plesk` avant
+  livraison et vérifier `npm run verify:plesk`. Les dist intermédiaires restent
+  ignorés ; les dépendances natives sont installées sur l'hôte, jamais commitées.
+- Aucune migration externe automatique, aucun secret ni fichier privé dans Git.
+
 - Authentification personnalisée explicitement demandée : numéro Academy haché
   pour les membres, mot de passe bcrypt pour les admins, JWT httpOnly + refresh
   rotatif en base. Ne pas remplacer par un autre fournisseur sans accord.

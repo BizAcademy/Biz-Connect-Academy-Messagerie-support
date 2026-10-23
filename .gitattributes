@@ -1,0 +1,3 @@
+/plesk/server/** linguist-generated=true
+/plesk/public/** linguist-generated=true
+/plesk/package-lock.json linguist-generated=true

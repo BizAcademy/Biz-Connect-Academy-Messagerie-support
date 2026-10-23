@@ -58,3 +58,8 @@ storage/
 .env.*
 !.env.example
 /generated-artifacts/
+
+# The small plesk/ distribution is intentionally tracked for prebuilt deployment.
+/plesk/.runtime-dependencies.sha256
+/plesk/.npm/
+/plesk/tmp/
