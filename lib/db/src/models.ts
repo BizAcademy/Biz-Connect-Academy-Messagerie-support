@@ -1,8 +1,15 @@
 // Sequelize is used at runtime; the matching Drizzle schema describes the
 // development schema to Replit's publish-time migration tooling.
 import { Sequelize, DataTypes as D, type Model } from "sequelize";
+import mysql from "mysql2";
 
-export const sequelize = new Sequelize(process.env.DATABASE_URL!, {
+// MariaDB speaks the MySQL protocol; mysql2 supports both servers.
+const connectionUrl = process.env.DATABASE_URL!.replace(/^mariadb:/, "mysql:");
+export const sequelize = new Sequelize(connectionUrl, {
+  ...(connectionUrl.startsWith("mysql:") ? {
+    dialect: "mysql" as const, dialectModule: mysql, timezone: "+00:00",
+    dialectOptions: { connectTimeout: 5000, charset: "utf8mb4" },
+  } : {}),
   logging: false,
   pool: { max: 10, min: 0, idle: 10000 },
   define: { timestamps: false, underscored: true },

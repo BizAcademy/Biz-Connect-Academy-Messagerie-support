@@ -28,7 +28,7 @@ try {
   stage = "environment";
   require("./environment.cjs")();
   stage = "dependencies";
-  for (const dependency of ["sequelize", "pg", "sharp"]) require(dependency);
+  for (const dependency of ["sequelize", "mysql2", "pg", "sharp"]) require(dependency);
   stage = "import";
   report.write(stage);
   timer = setTimeout(() => {

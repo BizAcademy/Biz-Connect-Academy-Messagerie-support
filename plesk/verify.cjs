@@ -16,7 +16,7 @@ const sourceInputs = [
   "artifacts/biz-connect/src", "artifacts/biz-connect/public", "artifacts/biz-connect/index.html",
   "artifacts/biz-connect/package.json", "artifacts/biz-connect/vite.config.ts",
   "artifacts/api-server/src", "artifacts/api-server/package.json", "artifacts/api-server/build.mjs",
-  "lib/db/src", "lib/db/drizzle", "lib/api-zod/src", "lib/api-client-react/src",
+  "lib/db/src", "lib/db/drizzle", "lib/db/mysql", "lib/db/package.json", "lib/api-zod/src", "lib/api-client-react/src",
   "lib/api-spec/openapi.yaml", "scripts/build-standalone.mjs", "scripts/build-plesk.mjs",
   "plesk/app.cjs", "plesk/environment.cjs", "plesk/verify.cjs", "plesk/deploy.cjs", "plesk/deploy.sh",
   "plesk/admin.cjs", "plesk/member.cjs", "plesk/diagnose.cjs", "plesk/startup-report.cjs",
@@ -52,7 +52,7 @@ function verifyRelease(options = {}) {
       throw new Error(`Version précompilée incomplète ou modifiée : ${name}. Relancer build:plesk avant le push.`);
     }
   }
-  for (const required of ["server/index.mjs", "server/admin.mjs", "server/member.mjs", "public/index.html", "schema/initial.sql", "package-lock.json"]) {
+  for (const required of ["server/index.mjs", "server/admin.mjs", "server/member.mjs", "public/index.html", "schema/initial.sql", "schema/initial-mysql.sql", "package-lock.json"]) {
     if (!release.files[required]) throw new Error(`Fichier absent du manifeste : ${required}`);
   }
   if (options.sources && sourceDigest() !== release.sourceHash) throw new Error("Les sources ont changé depuis le build. Exécuter npm run build:plesk avant le push GitHub.");

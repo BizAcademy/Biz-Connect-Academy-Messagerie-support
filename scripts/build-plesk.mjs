@@ -27,6 +27,7 @@ await cp(path.join(root, "artifacts/biz-connect/dist/public"), path.join(release
 const migrations = (await readdir(path.join(root, "lib/db/drizzle"))).filter((f) => f.endsWith(".sql")).sort();
 if (migrations.length !== 1) throw new Error("Vérifier manuellement le schéma initial et les migrations externes avant de construire la distribution.");
 await cp(path.join(root, "lib/db/drizzle", migrations[0]), path.join(releaseRoot, "schema/initial.sql"));
+await cp(path.join(root, "lib/db/mysql/initial.sql"), path.join(releaseRoot, "schema/initial-mysql.sql"));
 const apiRequire = createRequire(path.join(root, "artifacts/api-server/package.json"));
 const dbRequire = createRequire(path.join(root, "lib/db/package.json"));
 async function version(name, resolver) {
@@ -47,7 +48,7 @@ const pkg = {
   description: "BCA Messenger — distribution précompilée pour Plesk",
   engines: { node: ">=22.0.0" },
   scripts: { start: "node app.cjs", verify: "node verify.cjs", deploy: "node deploy.cjs", diagnose: "node diagnose.cjs", "admin:create": "node admin.cjs", "member:create": "node member.cjs" },
-  dependencies: { pg: await version("pg", dbRequire), sequelize: await version("sequelize", apiRequire), sharp: await version("sharp", apiRequire) },
+  dependencies: { mysql2: await version("mysql2", dbRequire), pg: await version("pg", dbRequire), sequelize: await version("sequelize", apiRequire), sharp: await version("sharp", apiRequire) },
 };
 const packageText = JSON.stringify(pkg, null, 2) + "\n";
 const packagePath = path.join(releaseRoot, "package.json");

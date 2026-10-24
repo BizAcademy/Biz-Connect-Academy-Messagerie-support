@@ -29,7 +29,7 @@ try {
   for (const k of Object.keys(env)) if (k.startsWith("CYBRANCEE_DB_") || k.startsWith("ADMIN_") || k.startsWith("MEMBER_")) delete env[k];
   run(["deploy.cjs"], app, env);
   const require = createRequire(path.join(app, "package.json"));
-  for (const name of ["sequelize", "pg", "sharp"]) {
+  for (const name of ["sequelize", "mysql2", "pg", "sharp"]) {
     assert(require.resolve(name).startsWith(path.join(app, "node_modules")), "Must not depend on workspace node_modules");
   }
   assert.match(run(["deploy.cjs"], app, env), /aucune installation nécessaire/);
@@ -84,6 +84,11 @@ try {
   assert.match(dbDiagnosis.stdout, /ECONNREFUSED/);
   assert(!dbDiagnosis.stdout.includes(env.DATABASE_URL), "Connection errors must not leak credentials");
   assert(!dbDiagnosis.stdout.includes(env.SESSION_SECRET));
+  const mysqlEnv = { ...env, DATABASE_URL: "mysql://unused:unused@127.0.0.1:1/unused" };
+  assert.match(run(["diagnose.cjs", "--skip-db"], app, mysqlEnv), /Serveur compilé démarré/);
+  const mysqlDiagnosis = spawnSync(process.execPath, ["diagnose.cjs"], { cwd: app, env: mysqlEnv, encoding: "utf8", timeout: 20000 });
+  assert.equal(mysqlDiagnosis.status, 1); assert.match(mysqlDiagnosis.stdout, /ECONNREFUSED/);
+  assert(!mysqlDiagnosis.stdout.includes(mysqlEnv.DATABASE_URL));
   const badEnv = { ...env, SESSION_SECRET: "short-secret-test" };
   const badStartup = spawnSync(process.execPath, ["app.cjs"], { cwd: app, env: badEnv, encoding: "utf8", timeout: 5000 });
   assert.equal(badStartup.status, 1);
@@ -105,9 +110,11 @@ try {
   clearTimeout(timedOut); child = null;
   assert.equal(heldExit, 1, "Startup failure must exit explicitly even with Passenger-like IPC/timer handles");
 
-  // The five database fields are encoded safely; no DB connection or values logged.
-  run(["-e", `require('./environment.cjs')(); const u=new URL(process.env.DATABASE_URL); if(decodeURIComponent(u.password)!=='p@ss:/ %') process.exit(1);`], app,
-    { ...env, CYBRANCEE_DB_HOST: "127.0.0.1", CYBRANCEE_DB_PORT: "5432", CYBRANCEE_DB_NAME: "bca", CYBRANCEE_DB_USER: "test", CYBRANCEE_DB_PASSWORD: "p@ss:/ %" });
+  // Four fields suffice; default MySQL port and reserved characters are safe.
+  run(["-e", `require('./environment.cjs')(); const u=new URL(process.env.DATABASE_URL); if(u.protocol!=='mysql:'||u.port!=='3306'||decodeURIComponent(u.password)!=='p@ss:/ %') process.exit(1);`], app,
+    { ...env, CYBRANCEE_DB_HOST: "127.0.0.1", CYBRANCEE_DB_NAME: "bca", CYBRANCEE_DB_USER: "test", CYBRANCEE_DB_PASSWORD: "p@ss:/ %" });
+  run(["-e", `require('./environment.cjs')(); if(new URL(process.env.DATABASE_URL).port!=='3307') process.exit(1);`], app,
+    { ...env, CYBRANCEE_DB_HOST: "127.0.0.1", CYBRANCEE_DB_PORT: "3307", CYBRANCEE_DB_NAME: "bca", CYBRANCEE_DB_USER: "test", CYBRANCEE_DB_PASSWORD: "test" });
   const runtimePackage = JSON.parse(await readFile(path.join(app, "package.json"), "utf8"));
   assert(!runtimePackage.devDependencies && !runtimePackage.scripts.build && !runtimePackage.scripts.postinstall);
   await writeFile(path.join(app, "server/index.mjs"), "// incomplete deployment");

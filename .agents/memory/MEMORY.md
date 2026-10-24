@@ -1,0 +1,1 @@
+- [Native database tests](native-database-tests.md) — MariaDB bootstrap can fail inside the command runner before application code; distinguish this from a database regression.

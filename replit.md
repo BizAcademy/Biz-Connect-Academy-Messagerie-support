@@ -15,6 +15,9 @@ Messagerie privée française pour les membres de l’académie et les agents su
 ## Décisions
 
 - Hébergement de production demandé : Plesk/Cybrancee, pas Replit Core.
+- Base de production demandée : MySQL/MariaDB sur Cybrancee. Les quatre champs
+  CYBRANCEE_DB_HOST/NAME/USER/PASSWORD suffisent ; port 3306 par défaut, facultatif.
+  PostgreSQL est conservé pour le développement existant, pas imposé en production.
 - Livrer une distribution `plesk/` précompilée dans Git : après installation
   initiale, GitHub → Plesk → Deploy Now + Restart, jamais de build dans Plesk.
 - Après tout changement applicatif, reconstruire `npm run build:plesk` avant
@@ -59,4 +62,7 @@ secret : sa rotation requiert une migration des fichiers et réabonnement push.
 
 La base intégrée est migrée par Publish, pas par une migration de production
 artisanale. Le SQL versionné n’est à appliquer manuellement que sur une base
-PostgreSQL externe confirmée. Voir README pour sauvegardes et prérequis.
+externe confirmée, avec le SQL correspondant à son moteur : MySQL/MariaDB
+(`plesk/schema/initial-mysql.sql`) ou PostgreSQL (`plesk/schema/initial.sql`).
+Ne jamais convertir, vider ou réinitialiser une base existante automatiquement.
+Voir README pour sauvegardes et prérequis.

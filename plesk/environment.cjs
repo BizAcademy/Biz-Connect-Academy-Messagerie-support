@@ -13,25 +13,24 @@ module.exports = function prepareEnvironment() {
   process.env.STATIC_DIR = path.join(root, "public");
   process.env.PORT ||= "3000"; // Passenger intercepts listen() in this process.
 
-  const keys = ["CYBRANCEE_DB_HOST", "CYBRANCEE_DB_PORT", "CYBRANCEE_DB_NAME", "CYBRANCEE_DB_USER", "CYBRANCEE_DB_PASSWORD"];
+  const keys = ["CYBRANCEE_DB_HOST", "CYBRANCEE_DB_NAME", "CYBRANCEE_DB_USER", "CYBRANCEE_DB_PASSWORD"];
   if (keys.some((k) => process.env[k])) {
     const missing = keys.filter((k) => !process.env[k]);
     if (missing.length) fail("BCA_DB_FIELDS", `Variables manquantes : ${missing.join(", ")}.`);
-    const port = Number(process.env.CYBRANCEE_DB_PORT);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) fail("BCA_DB_PORT", "Port PostgreSQL invalide.");
-    if (port === 3306) fail("BCA_DB_MYSQL", "Cette application exige PostgreSQL, pas MySQL/MariaDB.");
-    const url = new URL("postgresql://localhost");
+    const port = Number(process.env.CYBRANCEE_DB_PORT || "3306");
+    if (!Number.isInteger(port) || port < 1 || port > 65535) fail("BCA_DB_PORT", "Port MySQL/MariaDB invalide.");
+    const url = new URL("mysql://localhost");
     url.hostname = process.env.CYBRANCEE_DB_HOST.trim();
     url.port = String(port);
-    // URL setters leave literal '%' intact; encode first so pg can safely decode
+    // URL setters leave literal '%' intact; encode first so drivers safely decode
     // passwords/usernames containing %, @, /, spaces or other reserved characters.
     url.username = encodeURIComponent(process.env.CYBRANCEE_DB_USER);
     url.password = encodeURIComponent(process.env.CYBRANCEE_DB_PASSWORD);
     url.pathname = "/" + encodeURIComponent(process.env.CYBRANCEE_DB_NAME);
     process.env.DATABASE_URL = url.toString();
   }
-  if (!process.env.DATABASE_URL || !/^postgres(?:ql)?:\/\//.test(process.env.DATABASE_URL)) {
-    fail("BCA_DB_URL", "Configurer une connexion PostgreSQL dans les variables Plesk.");
+  if (!process.env.DATABASE_URL || !/^(mysql|mariadb|postgres|postgresql):\/\//.test(process.env.DATABASE_URL)) {
+    fail("BCA_DB_URL", "Configurer les quatre variables CYBRANCEE_DB_HOST, CYBRANCEE_DB_NAME, CYBRANCEE_DB_USER et CYBRANCEE_DB_PASSWORD dans Plesk, ou DATABASE_URL.");
   }
   if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
     fail("BCA_SESSION_SECRET", "SESSION_SECRET doit contenir au moins 32 caractères et rester identique après les déploiements.");

@@ -59,6 +59,25 @@ async function localStartup() {
   }
 }
 async function database() {
+  const expected = ["users", "admins", "conversations", "messages", "files", "sessions", "presence", "push_subscriptions"];
+  let names;
+  if (/^(mysql|mariadb):/.test(process.env.DATABASE_URL)) {
+    const mysql = require("mysql2/promise");
+    const client = await mysql.createConnection({
+      uri: process.env.DATABASE_URL.replace(/^mariadb:/, "mysql:"),
+      connectTimeout: 5000, timezone: "Z",
+    });
+    try {
+      // No DDL, account creation, row changes or implicit schema sync.
+      await client.query({ sql: "START TRANSACTION READ ONLY", timeout: 4000 });
+      const [rows] = await client.query({
+        sql: "SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()",
+        timeout: 4000,
+      });
+      names = rows.map((r) => r.name);
+      ok("Connexion MySQL/MariaDB et requête en lecture seule réussies.");
+    } finally { client.destroy(); }
+  } else {
   const { Client } = require("pg");
   const client = new Client({ connectionString: process.env.DATABASE_URL,
     connectionTimeoutMillis: 5000, query_timeout: 4000, statement_timeout: 4000,
@@ -66,14 +85,15 @@ async function database() {
   client.on("error", () => {});
   try {
     await client.connect();
-    const expected = ["users", "admins", "conversations", "messages", "files", "sessions", "presence", "push_subscriptions"];
     const tables = await client.query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public' AND tablename = ANY($1::text[])", [expected]);
     ok("Connexion PostgreSQL et requête en lecture seule réussies.");
-    const present = new Set(tables.rows.map((r) => r.tablename));
-    const missing = expected.filter((name) => !present.has(name));
-    if (missing.length) fail("Schéma", Object.assign(new Error("Tables absentes : " + missing.join(", ") + ". Aucune migration n'a été exécutée."), { code: "BCA_SCHEMA_MISSING" }));
-    else ok("Toutes les tables attendues sont présentes.");
+    names = tables.rows.map((r) => r.tablename);
   } finally { await client.end().catch(() => {}); }
+  }
+  const present = new Set(names);
+  const missing = expected.filter((name) => !present.has(name));
+  if (missing.length) fail("Schéma", Object.assign(new Error("Tables absentes : " + missing.join(", ") + ". Aucune migration n'a été exécutée."), { code: "BCA_SCHEMA_MISSING" }));
+  else ok("Toutes les tables attendues sont présentes.");
 }
 (async () => {
   console.log("BCA Messenger — diagnostic privé sans affichage des secrets.");
@@ -91,7 +111,7 @@ async function database() {
     console.log("Les variables du panneau Node.js ne sont pas toujours transmises aux commandes. Un fichier plesk/.env privé permet de les partager. Ne le publiez jamais sur GitHub.");
     return;
   }
-  for (const name of ["sequelize", "pg", "sharp"]) {
+  for (const name of ["sequelize", "mysql2", "pg", "sharp"]) {
     try { require(name); ok("Module " + name + " chargeable."); }
     catch (e) { fail("Module " + name, e); }
   }
@@ -100,7 +120,7 @@ async function database() {
   catch (e) { fail("Démarrage local", e); }
   if (!process.argv.includes("--skip-db")) {
     try { await database(); }
-    catch (e) { fail("Connexion PostgreSQL", e); }
+    catch (e) { fail("Connexion à la base", e); }
   }
   if (!failures) console.log("Diagnostic réussi. Si l'URL publique reste en 504, contrôler le démarrage Passenger et le proxy Plesk : ce test local ne prouve pas leur bon fonctionnement.");
 })().catch((e) => fail("Diagnostic", e)).finally(() => {

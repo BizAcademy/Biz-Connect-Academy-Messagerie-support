@@ -10,8 +10,11 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool, { schema });
+// Drizzle's PostgreSQL tooling remains available for development only. The
+// application runtime uses Sequelize; never construct a PG client for MySQL.
+export const pool = /^postgres(?:ql)?:/.test(process.env.DATABASE_URL)
+  ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
+export const db = pool ? drizzle(pool, { schema }) : null;
 
 export * from "./schema";
 export * from "./models";

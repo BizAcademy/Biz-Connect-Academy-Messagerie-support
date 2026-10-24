@@ -1,7 +1,8 @@
 # BCA Messenger
 
 Application de messagerie privée en français, React/Vite + Express + Socket.IO,
-PostgreSQL et Sequelize. PWA installable avec Web Push, images et vocaux privés.
+MySQL/MariaDB sur Cybrancee et Sequelize (PostgreSQL reste compatible pour le
+développement existant). PWA installable avec Web Push, images et vocaux privés.
 
 ## Ce qui est livré
 
@@ -32,7 +33,7 @@ ou facile à deviner, la plateforme doit fournir une vérification complémentai
 ## Prérequis
 
 - Node.js **22 LTS ou plus récent**, npm, accès réseau à npm pour l’installation.
-- PostgreSQL ; ce projet ne fournit pas d’adaptateur MySQL.
+- MySQL 8 / MariaDB 10.6+ pour Cybrancee ; PostgreSQL également pris en charge.
 - FFmpeg/FFprobe accessible au serveur pour mesurer la durée réelle des vocaux.
 - HTTPS pour les cookies de production, le micro, la PWA et le Web Push.
 - Disque **persistant** et privé, hors document root. Ne pas utiliser un système
@@ -64,6 +65,18 @@ un service de fichiers persistant avec accord du propriétaire.
 
 ## Installation Node.js autonome
 
+### Vérifications MySQL/MariaDB
+
+`pnpm --filter @workspace/api-server exec tsx src/services/conversations.mysql.test.ts`
+vérifie le pilote et le contrat de la boîte de réception, sans connexion à une base.
+`npm run test:mysql` nécessite `mariadbd` et `mariadb-install-db` : cette suite lance
+une base temporaire locale sous `/tmp`, importe le schéma et vérifie connexion,
+authentification, messages, autorisations membre/support et présence. Elle ne
+touche pas à Cybrancee. Certains environnements de commandes peuvent bloquer
+le serveur natif avant son démarrage ; ce cas ne valide pas la suite d'intégration.
+
+### Installation
+
 Copier `.env.example` vers `.env`, renseigner les valeurs via un moyen sécurisé,
 puis préparer la base et le compte support avant d’ouvrir le service au public.
 Ne jamais committer `.env`.
@@ -71,8 +84,9 @@ Ne jamais committer `.env`.
 ```sh
 npm install
 # npm délègue l'installation des packages workspace à pnpm automatiquement.
-# Initialisation EXPLICITE d'une base PostgreSQL EXTERNE vide uniquement :
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/drizzle/0000_outgoing_mentor.sql
+# Initialisation EXPLICITE d'une base EXTERNE VIDE uniquement :
+# MySQL/MariaDB : importer lib/db/mysql/initial.sql dans phpMyAdmin.
+# PostgreSQL existant : psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/drizzle/0000_outgoing_mentor.sql
 # Le seed charge les variables fournies par l'environnement du processus :
 npx pnpm --filter @workspace/api-server run seed
 # Renseigner ADMIN_USERNAME et ADMIN_PASSWORD (14 caractères minimum)
@@ -116,7 +130,7 @@ Il ne modifie pas le mot de passe d’un agent existant.
 
 ## Guide Cybrancee / Plesk
 
-Guide pour une offre autorisant Node.js, PostgreSQL, WebSocket et un disque
+Guide pour une offre autorisant Node.js, MySQL/MariaDB, WebSocket et un disque
 persistant. **Non testé sur un compte Cybrancee réel** : les menus, versions et
 capacités dépendent de l’offre. Vérifier leur disponibilité avec l’hébergeur.
 
@@ -137,8 +151,15 @@ Passenger, au démarrage ou dans l'action « Deploy Now ».
    Garder un seul processus Node/Passenger pour la présence et Socket.IO.
 3. **Variables Plesk** : renseigner les paramètres de `plesk/.env.example` dans
    les variables personnalisées Node.js. Les secrets Replit ne sont pas transférés
-   par GitHub. Choisir les cinq `CYBRANCEE_DB_*` **ou** `DATABASE_URL`, pas les deux.
-   PostgreSQL est obligatoire ; MySQL/MariaDB n'est pas compatible.
+   par GitHub. Pour Cybrancee, définir `CYBRANCEE_DB_HOST`, `CYBRANCEE_DB_NAME`,
+   `CYBRANCEE_DB_USER`, `CYBRANCEE_DB_PASSWORD`. Ces champs utilisent MySQL/MariaDB ;
+   aucun port PostgreSQL n'est requis. `CYBRANCEE_DB_PORT` est **facultatif** :
+   3306 par défaut, à changer uniquement si l'hébergeur indique un autre port.
+   Alternative : omettre tous les champs `CYBRANCEE_DB_*` et fournir une
+   `DATABASE_URL=mysql://...` (ou `mariadb://...`). PostgreSQL reste compatible
+   avec une URL `postgresql://...` pour les installations existantes.
+   Un fichier privé `plesk/.env` permet de fournir la même configuration au
+   serveur et à « Run script » si les variables du panneau ne sont pas transmises.
    `SESSION_SECRET` (32 caractères minimum), `APP_ORIGIN` HTTPS sans `/` final et
    `STORAGE_DIR` absolu sont requis. Conserver les clés de chiffrement après les
    mises à jour, sinon les fichiers privés existants ne seront plus lisibles.
@@ -159,7 +180,11 @@ Passenger, au démarrage ou dans l'action « Deploy Now ».
    sans changement. **Ce n'est pas une compilation** : ni Vite, ni TypeScript,
    ni pnpm, ni esbuild n'est utilisé sur le serveur. L'installation initiale reste
    nécessaire pour les bibliothèques natives correspondant à Linux du serveur.
-6. **Base vide externe uniquement** : importer une seule fois `plesk/schema/initial.sql`.
+6. **Base vide externe uniquement** : pour MySQL/MariaDB, importer une seule fois
+   **`plesk/schema/initial-mysql.sql`** depuis phpMyAdmin (base sélectionnée).
+   Ce fichier ne contient aucun DROP/TRUNCATE ; ne pas le réimporter sur une base
+   déjà initialisée. Il crée les huit tables applicatives et leurs contraintes.
+   Pour une ancienne installation PostgreSQL uniquement, utiliser `plesk/schema/initial.sql`.
    Ne jamais réimporter ce schéma sur une base existante. Les migrations ultérieures
    restent une opération explicite après sauvegarde ; aucune migration automatique
    ni création de compte ne se produit au démarrage ou au déploiement.
@@ -195,7 +220,8 @@ sans les sources ni les dépendances du monorepo et sans toucher à la base.
 Dans **Node.js → Run script**, lancer **`diagnose`** après le dernier Deploy Now
 et Restart App. La commande vérifie la distribution, les variables obligatoires
 (sans afficher leurs valeurs), les modules natifs, le démarrage d'un serveur
-temporaire local et sa route `/api/healthz`, puis la connexion PostgreSQL et
+temporaire local et sa route `/api/healthz`, puis la connexion MySQL/MariaDB (ou
+PostgreSQL selon l'URL) et
 l'existence des tables, uniquement en lecture seule. Elle ne compile rien, ne
 crée aucune table, n'installe rien et arrête son serveur temporaire.
 
@@ -241,7 +267,8 @@ Socket.IO partagé, des sessions adhérentes pour polling et un limiteur partag�
 - Clé de chiffrement AES dérivée de `FILE_ENCRYPTION_KEY` si fournie, sinon de
   `SESSION_SECRET`. **Changer la clé sans migration rend les fichiers existants
   illisibles.** Conserver les anciennes clés dans une sauvegarde sécurisée.
-- Sauvegarder quotidiennement PostgreSQL (`pg_dump`, restauration via `pg_restore`)
+- Sauvegarder quotidiennement la base (MySQL/MariaDB : export Plesk/phpMyAdmin ou
+  `mariadb-dump` ; PostgreSQL existant : `pg_dump`, restauration via `pg_restore`)
   et `STORAGE_DIR` de façon cohérente, chiffrer les sauvegardes, conserver les clés
   séparément et tester une restauration régulièrement. Planifier ces tâches chez
   l’hébergeur : le dépôt ne crée pas de sauvegarde distante automatiquement.
