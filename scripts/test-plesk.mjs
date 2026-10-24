@@ -44,6 +44,8 @@ try {
   await symlink(path.join(app, "public"), linkedStorage);
   assert.equal(spawnSync(process.execPath, storageProbe, { cwd: app, env: { ...env, STORAGE_DIR: linkedStorage }, encoding: "utf8" }).status, 1, "Symlinks must not expose private files in public");
   const require = createRequire(path.join(app, "package.json"));
+  const { testInit } = await import("./test-db-init.mjs");
+  await testInit(require("./init-db.cjs").initializeDatabase);
   for (const name of ["sequelize", "mysql2", "pg", "sharp"]) {
     assert(require.resolve(name).startsWith(path.join(app, "node_modules")), "Must not depend on workspace node_modules");
   }
@@ -100,7 +102,14 @@ try {
   assert.match(dbDiagnosis.stdout, /ECONNREFUSED/);
   assert(!dbDiagnosis.stdout.includes(env.DATABASE_URL), "Connection errors must not leak credentials");
   assert(!dbDiagnosis.stdout.includes(env.SESSION_SECRET));
+  const wrongDialect = spawnSync(process.execPath, ["init-db.cjs"], { cwd: app, env, encoding: "utf8", timeout: 10000 });
+  assert.equal(wrongDialect.status, 1); assert.match(wrongDialect.stderr, /BCA_SCHEMA_DIALECT/);
+  assert(!wrongDialect.stderr.includes(env.DATABASE_URL));
   const mysqlEnv = { ...env, DATABASE_URL: "mysql://unused:unused@127.0.0.1:1/unused" };
+  const failedInit = spawnSync(process.execPath, ["init-db.cjs"], { cwd: app, env: mysqlEnv, encoding: "utf8", timeout: 10000 });
+  assert.equal(failedInit.status, 1); assert.match(failedInit.stderr, /ECONNREFUSED/);
+  assert(!failedInit.stderr.includes(mysqlEnv.DATABASE_URL));
+  assert(!failedInit.stderr.includes(mysqlEnv.SESSION_SECRET));
   assert.match(run(["diagnose.cjs", "--skip-db"], app, mysqlEnv), /Serveur compilé démarré/);
   const mysqlDiagnosis = spawnSync(process.execPath, ["diagnose.cjs"], { cwd: app, env: mysqlEnv, encoding: "utf8", timeout: 20000 });
   assert.equal(mysqlDiagnosis.status, 1); assert.match(mysqlDiagnosis.stdout, /ECONNREFUSED/);

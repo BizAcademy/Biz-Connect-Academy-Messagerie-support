@@ -196,6 +196,15 @@ Passenger, au démarrage ou dans l'action « Deploy Now ».
    Ne jamais réimporter ce schéma sur une base existante. Les migrations ultérieures
    restent une opération explicite après sauvegarde ; aucune migration automatique
    ni création de compte ne se produit au démarrage ou au déploiement.
+   **Si phpMyAdmin refuse l'import (HTTP 403)** : après le déploiement de cette
+   version, utiliser **Node.js → Run script → `db:init`**. Cette commande explicite
+   crée les huit tables uniquement si la base MySQL/MariaDB est vide. Elle
+   n'est jamais lancée par le démarrage ou Deploy Now. Elle ne supprime aucune
+   donnée, refuse une base partiellement initialisée ou contenant d'autres tables,
+   et n'effectue rien si les huit tables sont déjà présentes. Un verrou protège
+   contre deux initialisations simultanées. Les créations MySQL ne sont pas
+   transactionnelles : en cas d'interruption, lancer `diagnose` et ne pas supprimer
+   les tables déjà créées. Les droits CREATE sont nécessaires une seule fois.
 7. **Administrateur** : définir temporairement `ADMIN_USERNAME` et `ADMIN_PASSWORD`
    (14 caractères minimum) dans un environnement sécurisé et exécuter
    `node plesk/admin.cjs` depuis la racine du dépôt. Retirer ensuite ces deux

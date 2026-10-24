@@ -1,7 +1,7 @@
 {
   "format": 1,
   "application": "BCA Messenger",
-  "sourceHash": "5459336286c900a567509997c2a8fb1d1d20b7c0ed9911a70c41790330ee298b",
+  "sourceHash": "03a7185a84f3224d3dae2ad0bfdbbe6b6880de2bab9451a3defde87f92fde861",
   "files": {
     "admin.cjs": "2122824b6f46ad9dc7211cae44f11705e9b9bd2227c1af7d447f82d238823c6f",
     "app.cjs": "7063f96fa998b509116ca2c27d790f390ba3f370d9a22b01614a3baee4a92a47",
@@ -9,9 +9,10 @@
     "deploy.sh": "27c62e2774d1d23f69febdc6eb4d09dd20243b632cb4b07f487a4e1c3fe55cec",
     "diagnose.cjs": "c11a611eae3c1e4c5144c56e1044fac18c0a4a5ae4a53beea7ee2f992116940f",
     "environment.cjs": "b3e6373b918d742d25eada380cfe23131d872fb632a9ce926f0b25c85ca87804",
+    "init-db.cjs": "1a9f2171559505e5ae15450ddd0a6bdef3dd03923ec600abdacd3e1f023113b3",
     "member.cjs": "1b54a8067f6a3c808331e207df516b06b0250e131189ab5632eb18a90c4b4b27",
     "package-lock.json": "c86fab800e94d3316a1494108ba10956711a7d4c8703ba2c5d0d123d50a7615e",
-    "package.json": "13f1579e44f9ca5973f5f3eaf81980dc88adab51384f3d0c9d25ac83f7236797",
+    "package.json": "de47edca6344e63d4f779d0cff697039685a4c7ef408e15863c2834cfadf42d7",
     "public/assets/index-CeuMRC2_.js": "447a5f4c212b24946a98e67c32516ce11b474150be952ea604bacb38afc2963e",
     "public/assets/index-DGrUeLRx.css": "e5a7d5357cd16cd694d768fba716a285afd9691ef1f47b61c6fe607b0c6e54e5",
     "public/brand.svg": "5d77de2ae757f519badfb40d46ed5bb1a809b914136bb255732ff96ee6f83e55",
@@ -34,6 +35,6 @@
     "server/pino-worker.mjs": "c52560457a6ac27bc46bfd2e089a1b26b21a3b8e1a627c7b66a6f462a47a9b1c",
     "server/thread-stream-worker.mjs": "377c6accaf45119f99f3d330e4d8d953f6384260f769ac0fadc6870ec9220169",
     "startup-report.cjs": "90478e95b7626c40acb11d079a6dd66b7892a2872d098ed3f42a59a25304e5d3",
-    "verify.cjs": "e7cc789bef54db0b43c5455de653fe011d987c79cd299ac19c19488b58a3afd6"
+    "verify.cjs": "c1cc32a62949017b73f0601a98a3550638c85cdfa7bb38e22b8fc602cf704bd6"
   }
 }
