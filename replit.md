@@ -45,6 +45,9 @@ Messagerie privée française pour les membres de l’académie et les agents su
 - Photo de l’expéditeur au début de chaque message reçu, avec initiales si absente.
 - Coches : une blanche non reçu, deux blanches reçu non lu, deux or #D4AF37 lu.
 - Les membres écrivent exclusivement au support, jamais entre eux.
+- Session membre persistante : après saisie du nom d’utilisateur et du numéro de
+  téléphone, revenir directement au chat sans ressaisie jusqu’à une déconnexion
+  explicite, comme demandé par l’utilisateur.
 
 - Interface française, style Telegram ; bulles sortantes bleues #1E5EFF,
   entrantes vertes #16A34A ; or #D4AF37 pour accents et non-lus.
