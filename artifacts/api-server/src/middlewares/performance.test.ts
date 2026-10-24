@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import express from "express";
+import { createServer } from "node:http";
+import { compressConversationJson } from "./json-compression";
+import { uploadCapacity } from "./upload-capacity";
+import { cachedInbox, invalidateInbox } from "../services/inbox-cache";
+let queries = 0;
+const load = async () => { queries++; await new Promise((r) => setTimeout(r, 5)); return [1, 2]; };
+await Promise.all(Array.from({ length: 100 }, () => cachedInbox("admin:fixture", load)));
+assert.equal(queries, 1, "100 simultaneous summary/list consumers share one query");
+invalidateInbox("fixture-member");
+await cachedInbox("admin:fixture", load);
+assert.equal(queries, 2);
+const first = await cachedInbox("member:other", load);
+invalidateInbox("fixture-member");
+assert.equal(await cachedInbox("member:other", load), first, "Invalidation must respect member isolation");
+const app = express();
+app.use(compressConversationJson);
+const data = Array.from({ length: 80 }, (_, i) => ({ id: i, content: "Historique compressé de la conversation de test, sans données réelles." }));
+app.get("/api/conversations/fixture/messages", (_req, res) => res.json(data));
+app.get("/api/auth/session", (_req, res) => res.json(data));
+let active = 0, maximum = 0;
+app.post("/capacity", uploadCapacity, (_req, res) => {
+  maximum = Math.max(maximum, ++active);
+  setTimeout(() => { active--; res.json({ ok: true }); }, 15);
+});
+const server = createServer(app);
+await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+const url = `http://127.0.0.1:${(server.address() as any).port}`;
+try {
+  const response = await fetch(`${url}/api/conversations/fixture/messages`, { headers: { "Accept-Encoding": "gzip" } });
+  assert.equal(response.headers.get("content-encoding"), "gzip");
+  assert.deepEqual(await response.json(), data);
+  assert(Number(response.headers.get("content-length")) < Buffer.byteLength(JSON.stringify(data)) / 2);
+  const session = await fetch(`${url}/api/auth/session`);
+  assert.equal(session.headers.get("content-encoding"), null, "Never compress authentication token responses");
+  await session.arrayBuffer();
+  const responses = await Promise.all(Array.from({ length: 128 }, () => fetch(`${url}/capacity`, { method: "POST" })));
+  await Promise.all(responses.map((r) => r.arrayBuffer()));
+  assert(responses.every((r) => r.ok)); assert.equal(maximum, 4);
+  console.log("PASS: 100 inbox consumers coalesced, isolated invalidation, gzip history, auth excluded, 128 queued uploads with maximum 4 simultaneous handlers.");
+} finally { await new Promise<void>((resolve) => server.close(() => resolve())); }

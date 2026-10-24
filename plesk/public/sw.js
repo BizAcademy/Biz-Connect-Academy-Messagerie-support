@@ -29,9 +29,28 @@ self.addEventListener("push", (event) => {
   event.waitUntil((async () => {
     let data;
     try { data = event.data.json(); } catch { data = {}; }
+    let icon = "/icon-192.png";
+    if (typeof data.senderAvatarUrl === "string" && /^\/api\/files\/[a-f0-9-]{36}$/i.test(data.senderAvatarUrl)) {
+      try {
+        let avatar = await fetch(data.senderAvatarUrl, { credentials: "include" });
+        if (avatar.status === 401) {
+          await fetch("/api/auth/session", { credentials: "include" });
+          avatar = await fetch(data.senderAvatarUrl, { credentials: "include" });
+        }
+        if (avatar.ok && (avatar.headers.get("Content-Type") || "").startsWith("image/")) {
+          const bytes = new Uint8Array(await avatar.arrayBuffer());
+          if (bytes.length <= 256 * 1024) {
+            let binary = "";
+            for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+            icon = `data:${avatar.headers.get("Content-Type")};base64,${btoa(binary)}`;
+          }
+        }
+      } catch { /* Offline or unavailable avatar: retain application icon. */ }
+    }
     await self.registration.showNotification(data.title || "BCA Messenger", {
       body: data.body || "Vous avez reçu un nouveau message.",
-      icon: "/icon-192.png", badge: "/notification-badge.png",
+      icon,
+      badge: "/notification-badge.png",
       tag: data.tag || "biz-connect-message", renotify: true,
       vibrate: [180, 80, 180], data: { conversationId: data.conversationId },
     });

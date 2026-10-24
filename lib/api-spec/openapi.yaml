@@ -116,6 +116,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: before, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: around, in: query, required: false, schema: { type: string, format: uuid }, description: Load a bounded context around a quoted message }
       responses:
         "200":
           description: Up to 100 messages ordered by creation time; X-History-Cursor identifies the next older page

@@ -138,7 +138,8 @@ export const GetMessagesParams = zod.object({
 })
 
 export const GetMessagesQueryParams = zod.object({
-  "before": zod.coerce.string().uuid().optional()
+  "before": zod.coerce.string().uuid().optional(),
+  "around": zod.coerce.string().uuid().optional().describe('Load a bounded context around a quoted message')
 })
 
 export const GetMessagesResponseItem = zod.object({

@@ -52,8 +52,9 @@ export function useBlobUrl(src: string | null | undefined, enabled = true) {
   const media = useQuery({
     queryKey: ["private-media", src],
     enabled: !!src && enabled,
-    staleTime: 5 * 60_000,
-    gcTime: 10 * 60_000,
+    staleTime: Infinity, // Immutable UUID media; cache is cleared with the session.
+    gcTime: 20 * 60_000,
+    refetchOnWindowFocus: false,
     retry: 1,
     queryFn: async ({ signal }) => {
       const response = await fetch(src!, { credentials: "same-origin", signal });

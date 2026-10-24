@@ -7,25 +7,30 @@ import { appOrigin } from "../lib/config";
 import { logger } from "../lib/logger";
 import type { Identity } from "./accounts";
 import { persistMessage, MessageSendError } from "./message-send";
+import { invalidateInbox } from "./inbox-cache";
 
 let io: Server | undefined;
 const online = new Map<string, { role: string; sockets: Set<string> }>();
 export const isOnline = (id: string) => !!online.get(id)?.sockets.size;
 export const isSupportOnline = () => [...online.values()].some((a) => a.role === "admin" && a.sockets.size > 0);
 export function notifyConversation(conversationId: string, userId: string) {
+  invalidateInbox(userId);
   io?.to("admins").to(`member:${userId}`).emit("changed", { conversationId });
 }
 export function emitNewMessage(conversationId: string, userId: string, message: unknown) {
+  invalidateInbox(userId);
   io?.to("admins").to(`member:${userId}`).emit("message:new", { conversationId, message });
   io?.to("admins").to(`member:${userId}`).emit("changed", { conversationId, realtimeVersion: 2 });
 }
 export function emitReceipt(conversationId: string, userId: string, receipt: {
   status: "delivered" | "read"; senderRole?: string; messageId?: string; before?: string;
 }) {
+  invalidateInbox(userId);
   io?.to("admins").to(`member:${userId}`).emit("messages:status", { conversationId, ...receipt });
   io?.to("admins").to(`member:${userId}`).emit("changed", { conversationId, realtimeVersion: 2 });
 }
 export function emitDeletion(conversationId: string, userId: string, messageId: string, only?: Identity) {
+  invalidateInbox(userId);
   const target = only ? io?.to(`account:${only.role}:${only.id}`) : io?.to("admins").to(`member:${userId}`);
   target?.emit("message:deleted", { conversationId, messageId, global: !only });
   target?.emit("changed", { conversationId, realtimeVersion: 2 });
@@ -67,6 +72,7 @@ export async function initRealtime(server: HttpServer) {
     const state = online.get(identity.id) || { role: identity.role, sockets: new Set<string>() };
     state.sockets.add(socket.id); online.set(identity.id, state);
     const presence = () => {
+      invalidateInbox(identity.id, identity.role === "admin");
       const data = { accountId: identity.id, role: identity.role, online: isOnline(identity.id), lastSeen: new Date().toISOString() };
       io?.to("admins").emit("presence", data);
       // Members learn aggregate support presence, never other members' identity.
@@ -114,7 +120,7 @@ export async function initRealtime(server: HttpServer) {
     socket.on("message:send", async (data, ack) => {
       if (typeof ack !== "function") return;
       if (Date.now() - packetWindow > 60000) { packets = 0; packetWindow = Date.now(); }
-      if (++packets > 120) { ack({ ok: false, status: 429, error: "Trop de messages. Patientez un instant." }); return; }
+      if (++packets > (identity.role === "admin" ? 2400 : 120)) { ack({ ok: false, status: 429, error: "Trop de messages. Patientez un instant." }); return; }
       try {
         const session = await SessionRecord.findOne({ where: { id: identity.sessionId, accountId: identity.id, role: identity.role, expiresAt: { [Op.gt]: new Date() } } });
         if (!session || !socket.connected) { ack({ ok: false, status: 401, error: "Session expirée." }); socket.disconnect(true); return; }
@@ -137,13 +143,14 @@ export async function initRealtime(server: HttpServer) {
         if (count) emitReceipt(data.conversationId, owner, { messageId: data.messageId, status: "delivered" });
       } catch (err) { logger.warn({ err }, "Message receipt failed"); }
     });
+    // Spread reconnect bursts instead of polling all 100+ sessions on one tick.
     const interval = setInterval(async () => {
       try {
         const record = await SessionRecord.findByPk(identity.sessionId);
         if (!record || new Date(record.get("expiresAt") as string).getTime() < Date.now()) { socket.disconnect(true); return; }
         await Presence.upsert({ accountId: identity.id, role: identity.role, lastSeen: new Date() });
       } catch (err) { logger.warn({ err }, "Presence heartbeat failed"); }
-    }, 60000);
+    }, 55000 + Math.floor(Math.random() * 10000));
     socket.on("disconnect", () => {
       clearInterval(interval);
       for (const id of typingTimers.keys()) stopTyping(id);

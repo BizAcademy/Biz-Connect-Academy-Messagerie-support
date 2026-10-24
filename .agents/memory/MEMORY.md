@@ -1,2 +1,4 @@
 - [Native database tests](native-database-tests.md) — MariaDB bootstrap can fail inside the command runner before application code; distinguish this from a database regression.
 - [Simple Plesk configuration](simple-plesk-configuration.md) — user rejects mandatory STORAGE_DIR; choose private storage automatically without another path question.
+- [ORM test isolation](orm-test-isolation.md) — preserve original Sequelize predicates in capacity-test wrappers; indirect query helpers also use findAll.
+- [Pointer gesture animations](pointer-gesture-animation.md) — entry animations and pointer transforms need separate elements; inspect the actual draggable child.

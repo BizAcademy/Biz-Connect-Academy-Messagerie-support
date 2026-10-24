@@ -228,6 +228,10 @@ export const ListConversationsFilter = {
 
 export type GetMessagesParams = {
 before?: string;
+/**
+ * Load a bounded context around a quoted message
+ */
+around?: string;
 };
 
 export type DeleteMessageParams = {

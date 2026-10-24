@@ -43,6 +43,43 @@ restent précréés avec un mot de passe ; aucun rôle admin n’est fourni par 
 
 ### Temps réel Socket.IO
 
+#### Médias, bande passante et charge
+
+- Les images partagées ont un aperçu compact (240 px de haut sur mobile,
+  280 px sur ordinateur). Les nouvelles images sont réduites à 1280 px et
+  réencodées en WebP ; les anciennes ne sont pas réécrites.
+- Les images sont téléchargées à l’approche de l’écran ; les vocaux seulement
+  après Lecture. Les médias déjà téléchargés sont réutilisés dans la session.
+  Leur cache HTTP reste privé et revalide l’autorisation avant un 304.
+- L’enregistrement demande une piste mono à 24 kbit/s lorsque le navigateur
+  le permet (environ 180 Ko/minute de données audio, hors surcoût du format).
+  Le navigateur peut choisir un débit différent ; un repli compatible reste
+  disponible. Aucun objectif de 100 Mo ne peut être garanti pour tous les usages.
+- Les grosses réponses JSON d’historique/listes sont compressées en gzip ;
+  les requêtes simultanées de liste et de compteur sont regroupées côté serveur
+  sur un cache par compte, invalidé dès qu’une conversation change.
+- Un retour à une citation ancienne charge au maximum 80 messages autour de
+  l’original, sans parcourir l’historique entier. Entrée ajoute une ligne ;
+  l’envoi utilise toujours le bouton Envoyer.
+- Les uploads sont limités à quatre traitements simultanés avec une file bornée,
+  et les envois push à huit connexions simultanées. Les notifications mises en
+  attente revérifient la session avant l’envoi.
+- Les notifications demandent la photo de l’expéditeur comme icône, avec repli
+  vers le logo. Le système peut imposer sa propre présentation. Les badges natifs
+  dépendent aussi du navigateur et des permissions ; le compteur reste visible
+  dans l’application et l’onglet.
+
+Vérification de charge du 24 octobre 2026 : 128 membres + 1 support, 256 messages
+texte reçus, aucun doublon ni échec, accusé d’envoi p95 environ 1,1 seconde sous
+rafale (processus isolé et véritable PostgreSQL **de développement**, sans push).
+Ce n’est pas une certification de capacité du serveur Plesk/MariaDB de production,
+ni un test de 128 téléchargements médias réels simultanés.
+
+Tests supplémentaires :
+`pnpm --filter @workspace/api-server exec tsx src/middlewares/performance.test.ts`,
+`node scripts/test-push-avatar.mjs` et, uniquement dans le développement Replit,
+`pnpm --filter @workspace/api-server exec tsx src/services/realtime.load-test.ts`.
+
 La connexion authentifiée utilise `/api/socket.io` (WebSocket avec repli
 long-polling pour les proxys qui ne permettent pas la mise à niveau WebSocket).
 Les membres restent isolés : seul le support et le propriétaire reçoivent

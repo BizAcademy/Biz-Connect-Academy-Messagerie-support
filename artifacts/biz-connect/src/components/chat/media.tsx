@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, ImageOff, MoreVertical, Pause, Play, Share2, X } from "lucide-react";
+import { Download, ImageOff, Loader2, MoreVertical, Pause, Play, Share2, X } from "lucide-react";
 import { useBlobUrl } from "@/hooks/use-app";
 import { formatDuration, initials } from "@/lib/chat-utils";
 import { cn } from "@/lib/utils";
@@ -73,26 +73,39 @@ export function UserAvatar({
 }
 
 export function ImageThumb({ src, onOpen }: { src: string; onOpen: (url: string, blob: Blob) => void }) {
-  const { url, blob, error } = useBlobUrl(src);
+  // Only fetch the protected blob once the thumbnail approaches the viewport.
+  const holder = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    if (visible || !holder.current) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { setVisible(true); io.disconnect(); }
+    }, { rootMargin: "150px 0px" });
+    io.observe(holder.current);
+    return () => io.disconnect();
+  }, [visible]);
+  const { url, blob, error } = useBlobUrl(src, visible);
   if (error)
     return (
-      <div className="grid h-40 w-56 place-items-center rounded-xl bg-black/15 text-xs text-white/80">
+      <div className="grid h-32 w-48 max-w-full place-items-center rounded-xl bg-black/15 text-xs text-white/80">
         <ImageOff className="mb-1 h-5 w-5" />
         Image indisponible
       </div>
     );
-  if (!url || !blob) return <div className="h-48 w-60 animate-pulse rounded-xl bg-white/15" />;
+  if (!url || !blob) return <div ref={holder} className="h-40 w-48 max-w-full animate-pulse rounded-xl bg-white/15 motion-reduce:animate-none" />;
   return (
     <button
       type="button"
       onClick={() => onOpen(url, blob)}
-      className="block w-full overflow-hidden rounded-xl"
+      className="block overflow-hidden rounded-xl"
       data-testid="button-open-image"
     >
       <img
         src={url}
         alt="Image partagée"
-        className="block h-auto w-full protected-media"
+        loading="lazy"
+        decoding="async"
+        className="block h-auto max-h-[240px] w-auto min-w-[8rem] max-w-[min(15rem,64vw)] object-contain sm:max-h-[280px] sm:max-w-[17.5rem] protected-media"
         {...protect}
       />
     </button>
@@ -166,6 +179,7 @@ export function ImageViewer({ url, blob, onClose }: { url: string; blob: Blob; o
         <img
           src={url}
           alt="Image en plein écran"
+          decoding="async"
           onClick={() => setZoom((z) => !z)}
           className={cn(
             "rounded-lg object-contain shadow-2xl transition-transform duration-300 animate-in zoom-in-95",
@@ -179,7 +193,11 @@ export function ImageViewer({ url, blob, onClose }: { url: string; blob: Blob; o
 }
 
 export function AudioPlayer({ src, duration, mine }: { src: string; duration: number | null; mine: boolean }) {
-  const { url, error } = useBlobUrl(src);
+  // Voice blobs are only downloaded after an explicit first tap on Play.
+  const [wanted, setWanted] = useState(false);
+  const { url, error } = useBlobUrl(src, wanted);
+  const autoPlay = useRef(false);
+  const [blocked, setBlocked] = useState(false);
   const ref = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
@@ -191,10 +209,25 @@ export function AudioPlayer({ src, duration, mine }: { src: string; duration: nu
   const pct = len > 0 ? Math.min(1, pos / len) : 0;
 
   useEffect(() => applyRate(ref.current, rate), [rate, url]);
+  const loading = wanted && !url && !error;
+  useEffect(() => {
+    const a = ref.current;
+    if (!url || !a || !autoPlay.current) return;
+    autoPlay.current = false;
+    pauseOthers(a);
+    applyRate(a, rateRef.current);
+    a.play().then(() => setBlocked(false), () => setBlocked(true)); // iOS may refuse: user taps Play again
+  }, [url]);
 
   const toggle = () => {
     const a = ref.current;
-    if (!a) return;
+    if (!url || !a) {
+      if (error) return;
+      autoPlay.current = true;
+      setWanted(true);
+      return;
+    }
+    setBlocked(false);
     if (a.paused) {
       pauseOthers(a);
       applyRate(a, rateRef.current);
@@ -216,13 +249,14 @@ export function AudioPlayer({ src, duration, mine }: { src: string; duration: nu
       <button
         type="button"
         onClick={toggle}
-        disabled={!url}
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-[#0B1B3F] shadow-sm transition-transform active:scale-90 disabled:opacity-50"
+        disabled={!!error || loading}
+        aria-busy={loading}
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-[#0B1B3F] shadow-sm transition-[transform,opacity] duration-150 active:scale-90 disabled:opacity-60 motion-reduce:transition-none"
         style={{ color: mine ? "#1E5EFF" : "#16A34A" }}
-        aria-label={playing ? "Pause" : "Lecture"}
+        aria-label={loading ? "Chargement de l'audio" : playing ? "Pause" : "Lecture"}
         data-testid="button-play-audio"
       >
-        {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
       </button>
       <div className="min-w-0 flex-1">
         <div className="flex h-7 cursor-pointer touch-none items-center gap-[2px] overflow-hidden" onPointerDown={seek} data-testid="audio-seek">
@@ -235,14 +269,13 @@ export function AudioPlayer({ src, duration, mine }: { src: string; duration: nu
           ))}
         </div>
         <div className="mt-0.5 text-[11px] font-mono-num text-white/85" data-testid="text-audio-time">
-          {error ? "Audio indisponible" : playing || pos > 0 ? `${formatDuration(pos)} / ${formatDuration(len)}` : formatDuration(len)}
+          {error ? "Audio indisponible" : blocked ? "Touchez Lecture" : playing || pos > 0 ? `${formatDuration(pos)} / ${formatDuration(len)}` : formatDuration(len)}
         </div>
       </div>
       <button
         type="button"
         onClick={cycleRate}
-        disabled={!url}
-        className="h-7 min-w-[2.6rem] shrink-0 rounded-full bg-white/20 px-1.5 text-[11px] font-bold font-mono-num text-white transition active:scale-90 disabled:opacity-50"
+        className="h-7 min-w-[2.6rem] shrink-0 rounded-full bg-white/20 px-1.5 text-[11px] font-bold font-mono-num text-white transition-transform duration-150 active:scale-90 motion-reduce:transition-none"
         aria-label={`Vitesse de lecture ${rateLabel(rate)}, changer`}
         data-testid="button-audio-rate"
       >
@@ -252,7 +285,7 @@ export function AudioPlayer({ src, duration, mine }: { src: string; duration: nu
         <audio
           ref={ref}
           src={url}
-          preload="metadata"
+          preload="none"
           onPlay={(e) => {
             pauseOthers(e.currentTarget);
             applyRate(e.currentTarget, rateRef.current);

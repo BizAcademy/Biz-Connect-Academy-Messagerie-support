@@ -15,6 +15,17 @@ const subject = process.env.VAPID_SUBJECT || (!production && process.env.REPLIT_
 export const pushEnabled = !!subject;
 export const pushConfig = { enabled: pushEnabled, publicKey: pushEnabled ? publicKey : null };
 if (subject) webPush.setVapidDetails(subject, publicKey, privateKey);
+let activePushes = 0;
+const pendingPushes: Array<() => void> = [];
+async function withPushSlot(run: () => Promise<unknown>) {
+  if (activePushes < 8) activePushes++;
+  else {
+    if (pendingPushes.length >= 1000) throw new Error("Push capacity reached");
+    await new Promise<void>((resolve) => pendingPushes.push(resolve));
+  }
+  try { return await run(); }
+  finally { const next = pendingPushes.shift(); if (next) next(); else activePushes--; }
+}
 
 export function validPushEndpoint(endpoint: string) {
   try {
@@ -39,13 +50,18 @@ export async function sendMessagePush(identity: Identity, userId: string, messag
     if (!active.has(`${sub.sessionId}:${sub.accountId}:${sub.role}`)) return;
     if (!validPushEndpoint(sub.endpoint)) return;
     try {
-      await webPush.sendNotification({
+      await withPushSlot(async () => {
+        // A queued notification may outlive a logout; recheck before delivery.
+        if (!await SessionRecord.findOne({ where: { id: sub.sessionId, accountId: sub.accountId, role: sub.role, expiresAt: { [Op.gt]: new Date() } } })) return;
+        return webPush.sendNotification({
         endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth },
       }, JSON.stringify({
         title: message.senderName || (identity.role === "admin" ? "Support BCA" : "Membre"),
         body: (message.type === "voice" ? "Message vocal" : message.type === "image" ? `Photo${message.content ? " : " + message.content : ""}` : message.content || "Nouveau message").slice(0, 240),
         conversationId: message.conversationId, tag: message.conversationId,
+        senderAvatarUrl: message.senderAvatarUrl || null,
       }), { TTL: 86400, urgency: "high", timeout: 10000 });
+      });
     } catch (err: any) {
       if ([404, 410].includes(err.statusCode)) await row.destroy();
       else logger.warn({ status: err.statusCode }, "Push delivery failed");

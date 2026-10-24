@@ -139,6 +139,7 @@ export function AdminInbox({ account, onOpenSettings }: { account: Account; onOp
           <header className="px-4 pb-2 pt-4" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}>
             <div className="flex items-center gap-3">
               <BrandLogo className="h-10 w-10 rounded-xl" />
+              {!!summary.data?.unreadMessages && <span className="grid min-h-6 min-w-6 shrink-0 place-items-center rounded-full bg-gold px-1.5 text-xs font-bold text-[#0B1B3F]" aria-label={`${summary.data.unreadMessages} messages non lus`} data-testid="badge-unread-total">{summary.data.unreadMessages}</span>}
               <div className="min-w-0 flex-1">
                 <h1 className="font-display text-xl leading-none">Boîte de réception</h1>
                 <div className="mt-1 flex items-center gap-2">

@@ -105,7 +105,7 @@ export function useVoiceRecorder(onResult: (r: VoiceResult) => void, onError: (e
     permissionWait.current = permissionTimer;
     let s: MediaStream;
     try {
-      s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
     } catch (e) {
       if (my === token.current) {
         requesting.current = false;
@@ -125,7 +125,8 @@ export function useVoiceRecorder(onResult: (r: VoiceResult) => void, onError: (e
     const mime = MIMES.find((m) => MediaRecorder.isTypeSupported?.(m));
     let r: MediaRecorder;
     try {
-      r = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
+      try { r = new MediaRecorder(s, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: 24000 }); }
+      catch { r = new MediaRecorder(s, mime ? { mimeType: mime } : undefined); }
     } catch {
       s.getTracks().forEach((t) => t.stop());
       setPhase("idle");

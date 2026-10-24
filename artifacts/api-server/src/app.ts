@@ -9,6 +9,7 @@ import rateLimit from "express-rate-limit";
 import { csrfProtection } from "./middlewares/auth";
 import { appOrigin, production } from "./lib/config";
 import path from "node:path";
+import { compressConversationJson } from "./middlewares/json-compression";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -60,12 +61,15 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(rateLimit({ windowMs: 60000, limit: 300, standardHeaders: true, legacyHeaders: false,
+// Carrier NAT/school Wi-Fi may put 100 members behind one IP. Login retains its
+// own strict limiter; this shared transport ceiling must not block the group.
+app.use(rateLimit({ windowMs: 60000, limit: 3000, standardHeaders: true, legacyHeaders: false,
   message: { error: "Trop de requêtes, veuillez patienter." } }));
 app.use(cookieParser());
 app.use(express.json({ limit: "32kb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/api", csrfProtection);
+app.use(compressConversationJson);
 
 app.use("/api", router);
 app.use("/api", (_req, res) => { res.status(404).json({ error: "Route introuvable." }); });
@@ -73,6 +77,7 @@ if (process.env.SERVE_STATIC === "true") {
   const publicRoot = path.resolve(process.env.STATIC_DIR || path.join(process.cwd(), "artifacts/biz-connect/dist/public"));
   app.use(express.static(publicRoot, { setHeaders(res, file) {
     if (file.endsWith("sw.js") || file.endsWith("index.html")) res.setHeader("Cache-Control", "no-cache");
+    else if (file.includes(`${path.sep}assets${path.sep}`)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   } }));
   app.get("/{*splat}", (_req, res) => { res.sendFile(path.join(publicRoot, "index.html")); });
 }

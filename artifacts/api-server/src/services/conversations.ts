@@ -2,6 +2,7 @@ import { QueryTypes, Op } from "sequelize";
 import { sequelize, Conversation, Presence, MessageRecord, User, Admin } from "@workspace/db";
 import type { Identity } from "./accounts";
 import { isOnline, isSupportOnline } from "./realtime";
+import { cachedInbox } from "./inbox-cache";
 
 export async function authorizeConversation(id: string, identity: Identity) {
   if (!/^[a-f0-9-]{36}$/i.test(id)) return null;
@@ -9,6 +10,9 @@ export async function authorizeConversation(id: string, identity: Identity) {
   return c && (identity.role === "admin" || c.get("userId") === identity.id) ? c : null;
 }
 export async function inbox(identity: Identity) {
+  return cachedInbox(`${identity.role}:${identity.id}`, () => loadInbox(identity));
+}
+async function loadInbox(identity: Identity) {
   const mysql = sequelize.getDialect() === "mysql";
   const avatar = mysql ? "CONCAT('/api/files/', u.avatar_file_id)" : "'/api/files/' || u.avatar_file_id";
   const accountId = mysql ? "c.user_id" : "c.user_id::text";
@@ -55,9 +59,10 @@ export async function serializeMessages(rows: any[]) {
   const originalMap = new Map(originals.map((r) => [r.get("id"), r.get()]));
   const allSenders = [...data, ...originals.map((r) => r.get())];
   const ids = (role: string) => [...new Set(allSenders.filter((m) => m.senderRole === role).map((m) => m.senderId))];
+  const memberIds = ids("member"), adminIds = ids("admin");
   const [members, admins] = await Promise.all([
-    User.findAll({ where: { id: { [Op.in]: ids("member") } }, attributes: ["id", "username", "avatarFileId"] }),
-    Admin.findAll({ where: { id: { [Op.in]: ids("admin") } }, attributes: ["id", "username", "avatarFileId"] }),
+    memberIds.length ? User.findAll({ where: { id: { [Op.in]: memberIds } }, attributes: ["id", "username", "avatarFileId"] }) : Promise.resolve([]),
+    adminIds.length ? Admin.findAll({ where: { id: { [Op.in]: adminIds } }, attributes: ["id", "username", "avatarFileId"] }) : Promise.resolve([]),
   ]);
   const senders = new Map([...members, ...admins].map((s) => [s.get("id"), s.get()]));
   return data.map((m) => {

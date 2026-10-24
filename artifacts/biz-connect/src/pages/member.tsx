@@ -23,6 +23,7 @@ export function MemberChat({ account, onOpenSettings }: { account: Account; onOp
           {conv && typing[conv.id] ? <span className="font-medium text-[#16A34A]">un conseiller écrit…</span> : status !== "online" ? <ConnectionPill /> : conv?.online ? <span className="font-medium text-[#16A34A]" data-testid="support-online">en ligne</span> : <span className="text-muted-foreground" data-testid="support-offline">{formatLastSeen(conv?.lastSeen ?? null)}</span>}
         </div>
       </div>
+      {!!conv?.unreadCount && <span className="grid min-h-6 min-w-6 place-items-center rounded-full bg-gold px-1.5 text-xs font-bold text-[#0B1B3F]" aria-label={`${conv.unreadCount} messages non lus`} data-testid="badge-unread-total">{conv.unreadCount}</span>}
       <button onClick={onOpenSettings} className="rounded-full p-0.5" aria-label="Paramètres" data-testid="button-settings">
         <UserAvatar name={account.username} src={account.avatarUrl} size={36} />
       </button>

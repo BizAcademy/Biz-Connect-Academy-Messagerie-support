@@ -13,12 +13,14 @@ import { storePrivate, readPrivate, removePrivate, probeAudio } from "../service
 import { normalizeVoiceMime } from "../services/audio-probe";
 import { publicAccount, accountModel } from "../services/accounts";
 import { notifyConversation } from "../services/realtime";
+import { uploadCapacity } from "../middlewares/upload-capacity";
+sharp.concurrency(2);
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 1, fields: 3 } });
-const limitUploads = rateLimit({ windowMs: 60000, limit: 15, message: { error: "Trop de fichiers. Veuillez patienter." } });
+const limitUploads = rateLimit({ windowMs: 60000, limit: 15, keyGenerator: (req) => `${req.identity!.role}:${req.identity!.id}`, message: { error: "Trop de fichiers. Veuillez patienter." } });
 const fields = z.object({ purpose: z.enum(["image", "voice", "avatar"]), conversationId: z.string().uuid().optional() });
-router.post("/files", requireAuth, limitUploads, upload.single("file"), async (req, res) => {
+router.post("/files", requireAuth, limitUploads, uploadCapacity, upload.single("file"), async (req, res) => {
   const parsed = fields.safeParse(req.body);
   if (!parsed.success || !req.file) { res.status(400).json({ error: "Fichier ou destination invalide." }); return; }
   const { purpose, conversationId } = parsed.data;
@@ -45,8 +47,8 @@ router.post("/files", requireAuth, limitUploads, upload.single("file"), async (r
       // Re-encoding strips metadata and active/polyglot payloads.
       let pipeline = sharp(bytes, { limitInputPixels: 30_000_000 }).rotate();
       pipeline = purpose === "avatar" ? pipeline.resize(512, 512, { fit: "cover" })
-        : pipeline.resize(2048, 2048, { fit: "inside", withoutEnlargement: true });
-      bytes = await pipeline.webp({ quality: 85 }).toBuffer(); mime = "image/webp";
+        : pipeline.resize(1280, 1280, { fit: "inside", withoutEnlargement: true });
+      bytes = await pipeline.webp({ quality: purpose === "avatar" ? 78 : 72, effort: 3 }).toBuffer(); mime = "image/webp";
     } catch { res.status(400).json({ error: "Image invalide ou trop grande." }); return; }
   }
   const storedPath = await storePrivate(bytes);
@@ -67,8 +69,12 @@ router.get("/files/:id", requireAuth, async (req, res) => {
   if (!allowed && f.conversationId) allowed = !!await authorizeConversation(f.conversationId, identity);
   if (!allowed && f.purpose === "avatar") allowed = !!await Admin.findOne({ where: { avatarFileId: f.id } });
   if (!allowed) { res.status(404).json({ error: "Fichier introuvable." }); return; }
+  // Validate authorization BEFORE conditional-cache handling. UUID content is
+  // immutable, but private cache hits must never bypass a subsequent logout.
+  res.set({ "Content-Type": f.mime, "Cache-Control": "private, no-cache",
+    "ETag": `"bca-${f.id}-${f.size}"`, "X-Content-Type-Options": "nosniff", "Accept-Ranges": "bytes" });
+  if (!req.get("range") && req.fresh) { res.status(304).end(); return; }
   const bytes = await readPrivate(f.path);
-  res.set({ "Content-Type": f.mime, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Accept-Ranges": "bytes" });
   const extension = f.mime.split("/")[1].replace(/[^a-z0-9]/g, "");
   res.set("Content-Disposition", `${req.query.download === "1" ? "attachment" : "inline"}; filename="biz-connect-${f.id}.${extension}"`);
   const range = req.get("range");

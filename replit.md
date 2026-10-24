@@ -120,6 +120,16 @@ Voir README pour sauvegardes et prérequis.
 
 ## Temps réel
 
+- Entrée doit toujours ajouter une ligne, sur ordinateur comme sur mobile ;
+  seul le bouton d’envoi transmet un message, y compris une légende d’image.
+- Les images du fil doivent rester compactes et les vocaux ne doivent pas
+  télécharger leur fichier avant la première demande de lecture.
+- Les réponses citées doivent permettre de retrouver l’original avec un
+  surlignage or léger, sans télécharger l’historique entier.
+- L’objectif utilisateur est de réduire la consommation de données et de servir
+  plus de 100 membres simultanément ; ne pas promettre une durée fixe avec 100 Mo
+  ni une capacité de production sans mesure sur le serveur concerné.
+
 - Préférer l’intégration directe des événements Socket.IO au rechargement du
   fil à chaque message, coche ou changement de présence.
 - Les réessais Socket.IO/HTTP partagent un identifiant stable afin qu’un accusé

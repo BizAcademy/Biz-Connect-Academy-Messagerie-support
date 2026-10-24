@@ -396,18 +396,20 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <input
+              <textarea
                 value={caption}
+                rows={2}
+                maxLength={10000}
+                enterKeyHint="enter"
                 onChange={(e) => setCaption(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendImage()}
                 placeholder="Ajouter une légende"
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                className="max-h-28 w-full resize-none rounded-xl border bg-background px-3 py-2 text-sm leading-5 outline-none transition-colors focus:border-primary"
                 data-testid="input-caption"
               />
               <button
                 onClick={sendImage}
                 disabled={busy}
-                className="self-end rounded-full bg-out px-4 py-1.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60"
+                className="self-end rounded-full bg-out px-4 py-1.5 text-sm font-semibold text-white transition-[transform,opacity] duration-150 ease-out active:scale-95 disabled:pointer-events-none disabled:opacity-60 motion-reduce:transition-none"
                 data-testid="button-send-image"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Envoyer l'image"}
@@ -530,7 +532,7 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={preparing || busy}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-90"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-[transform,opacity,background-color,color] duration-150 ease-out hover:bg-muted hover:text-foreground active:scale-90 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none"
               aria-label="Joindre une image"
               data-testid="button-attach-image"
             >
@@ -542,12 +544,7 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
               value={text}
               rows={1}
               onChange={(e) => onText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  submitText();
-                }
-              }}
+              enterKeyHint="enter"
               onBlur={stopTyping}
               maxLength={10000}
               placeholder="Écrire un message"
@@ -586,7 +583,7 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
             type="button"
             onClick={submitText}
             disabled={busy}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-out text-white shadow-[0_6px_16px_-6px_#1E5EFF] transition active:scale-90 disabled:opacity-60 animate-in zoom-in-75 duration-150"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-out text-white shadow-[0_6px_16px_-6px_#1E5EFF] transition-[transform,opacity] duration-150 ease-out active:scale-90 disabled:pointer-events-none disabled:opacity-60 motion-reduce:transition-none animate-in zoom-in-75"
             aria-label="Envoyer"
             data-testid="button-send"
           >

@@ -102,7 +102,7 @@ function canvasBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   );
 }
 
-export async function compressImage(file: File, max = 1600, quality = 0.82): Promise<Blob> {
+export async function compressImage(file: File, max = 1280, quality = 0.72): Promise<Blob> {
   const img = await loadImage(file);
   const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.round(img.naturalWidth * scale);
@@ -114,7 +114,13 @@ export async function compressImage(file: File, max = 1600, quality = 0.82): Pro
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(img, 0, 0, w, h);
-  return canvasBlob(canvas, quality);
+  let blob = await canvasBlob(canvas, quality);
+  // Keep common photographs around 200 KB, while retaining legible screenshots.
+  while (blob.size > 220 * 1024 && quality > 0.46) {
+    quality -= 0.1;
+    blob = await canvasBlob(canvas, quality);
+  }
+  return blob;
 }
 
 export async function cropAvatar(file: File, size = 512): Promise<Blob> {

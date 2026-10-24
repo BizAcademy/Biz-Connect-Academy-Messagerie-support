@@ -21,7 +21,7 @@ export function appendRealtimeMessage(qc: QueryClient, message: Message) {
 }
 export function mapRealtimeMessages(qc: QueryClient, conversationId: string, update: (m: Message) => Message | null) {
   const map = (messages: Message[]) => messages.flatMap((m) => { const next = update(m); return next ? [next] : []; });
-  qc.setQueryData<History>(["chat-history", conversationId], (old) => old ? { ...old, pages: old.pages.map((p) => ({ ...p, messages: map(p.messages) })) } : old);
+  qc.setQueriesData<History>({ queryKey: ["chat-history", conversationId] }, (old) => old ? { ...old, pages: old.pages.map((p) => ({ ...p, messages: map(p.messages) })) } : old);
   qc.setQueryData<Message[]>(getGetMessagesQueryKey(conversationId), (old) => old ? map(old) : old);
 }
 export function applyReceipt(qc: QueryClient, receipt: { conversationId: string; messageId?: string; senderRole?: string; before?: string; status: Message["status"] }) {

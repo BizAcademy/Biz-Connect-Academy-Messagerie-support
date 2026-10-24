@@ -50,6 +50,24 @@ router.get("/conversations/:id/messages", async (req, res) => {
   const delivered = await deliverPending(c.get("id") as string, req.identity!, receivedBefore);
   const params = GetMessagesQueryParams.safeParse(req.query);
   if (!params.success) { res.status(400).json({ error: "Page invalide." }); return; }
+  if (params.data.before && params.data.around) { res.status(400).json({ error: "Choisissez une seule destination." }); return; }
+  if (params.data.around) {
+    const target = await MessageRecord.findOne({ where: { id: params.data.around, conversationId: c.get("id") } });
+    const key = `${req.identity!.role}:${req.identity!.id}`;
+    if (!target || JSON.parse(String(target.get("hiddenFor") || "[]")).includes(key)) {
+      res.status(404).json({ error: "Ce message n’est plus disponible." }); return;
+    }
+    const time = target.get("createdAt"), id = target.get("id");
+    const [older, newer] = await Promise.all([
+      MessageRecord.findAll({ where: { conversationId: c.get("id"), [Op.or]: [{ createdAt: { [Op.lt]: time } }, { createdAt: time, id: { [Op.lte]: id } }] }, order: [["createdAt", "DESC"], ["id", "DESC"]], limit: 40 }),
+      MessageRecord.findAll({ where: { conversationId: c.get("id"), [Op.or]: [{ createdAt: { [Op.gt]: time } }, { createdAt: time, id: { [Op.gt]: id } }] }, order: [["createdAt", "ASC"], ["id", "ASC"]], limit: 40 }),
+    ]);
+    const visible = [...older.reverse(), ...newer].filter((r) => !JSON.parse(String(r.get("hiddenFor") || "[]")).includes(key));
+    res.setHeader("X-History-Cursor", older.length === 40 ? String(older[0]!.get("id")) : "");
+    res.json(GetMessagesResponse.parse(await serializeMessages(visible)));
+    if (delivered) emitReceipt(String(c.get("id")), String(c.get("userId")), { status: "delivered", senderRole: req.identity!.role === "member" ? "admin" : "member", before: receivedBefore.toISOString() });
+    return;
+  }
   const before = params.data.before ? await MessageRecord.findOne({ where: { id: params.data.before, conversationId: c.get("id") } }) : null;
   if (req.query.before && !before) { res.status(400).json({ error: "Page invalide." }); return; }
   const rows = await MessageRecord.findAll({
