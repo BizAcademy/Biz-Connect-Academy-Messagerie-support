@@ -116,6 +116,15 @@ export const MessageStatus = {
   read: 'read',
 } as const;
 
+/**
+ * @nullable
+ */
+export type MessageReplyTo = {
+  id: string;
+  senderName: string;
+  content: string;
+} | null;
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -132,6 +141,8 @@ export interface Message {
   duration: number | null;
   status: MessageStatus;
   createdAt: string;
+  /** @nullable */
+  replyTo?: MessageReplyTo;
 }
 
 export type MessageInputType = typeof MessageInputType[keyof typeof MessageInputType];
@@ -148,6 +159,7 @@ export interface MessageInput {
   /** @maxLength 10000 */
   content?: string;
   fileId?: string;
+  replyToId?: string;
   /**
      * @minimum 0
      * @maximum 300
@@ -210,5 +222,21 @@ export const ListConversationsFilter = {
   unread: 'unread',
   read: 'read',
   favorites: 'favorites',
+} as const;
+
+export type GetMessagesParams = {
+before?: string;
+};
+
+export type DeleteMessageParams = {
+scope: DeleteMessageScope;
+};
+
+export type DeleteMessageScope = typeof DeleteMessageScope[keyof typeof DeleteMessageScope];
+
+
+export const DeleteMessageScope = {
+  me: 'me',
+  everyone: 'everyone',
 } as const;
 

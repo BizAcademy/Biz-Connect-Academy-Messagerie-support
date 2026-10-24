@@ -25,8 +25,11 @@ await cp(path.join(root, "artifacts/api-server/dist"), path.join(releaseRoot, "s
 });
 await cp(path.join(root, "artifacts/biz-connect/dist/public"), path.join(releaseRoot, "public"), { recursive: true });
 const migrations = (await readdir(path.join(root, "lib/db/drizzle"))).filter((f) => f.endsWith(".sql")).sort();
-if (migrations.length !== 1) throw new Error("Vérifier manuellement le schéma initial et les migrations externes avant de construire la distribution.");
-await cp(path.join(root, "lib/db/drizzle", migrations[0]), path.join(releaseRoot, "schema/initial.sql"));
+// This is the complete schema for a NEW PostgreSQL installation, never a
+// startup migration for existing hosts. External MySQL upgrades stay explicit.
+await writeFile(path.join(releaseRoot, "schema/initial.sql"), (await Promise.all(
+  migrations.map((file) => readFile(path.join(root, "lib/db/drizzle", file), "utf8")),
+)).join("\n"));
 await cp(path.join(root, "lib/db/mysql/initial.sql"), path.join(releaseRoot, "schema/initial-mysql.sql"));
 const apiRequire = createRequire(path.join(root, "artifacts/api-server/package.json"));
 const dbRequire = createRequire(path.join(root, "lib/db/package.json"));

@@ -5,6 +5,7 @@
  * Biz Connect Academy support messaging
  * OpenAPI spec version: 1.0.0
  */
+import type { MessageReplyTo } from './messageReplyTo';
 import type { MessageSenderRole } from './messageSenderRole';
 import type { MessageStatus } from './messageStatus';
 import type { MessageType } from './messageType';
@@ -25,4 +26,6 @@ export interface Message {
   duration: number | null;
   status: MessageStatus;
   createdAt: Date;
+  /** @nullable */
+  replyTo?: MessageReplyTo;
 }

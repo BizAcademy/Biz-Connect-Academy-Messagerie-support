@@ -55,6 +55,8 @@ export const MessageRecord = model("MessageRecord", "messages", {
   type: D.TEXT, content: { type: D.TEXT, defaultValue: "" }, fileId: { type: D.UUID, field: "file_id" },
   duration: D.DOUBLE, status: { type: D.TEXT, defaultValue: "sent" },
   isRead: { type: D.BOOLEAN, defaultValue: false, field: "is_read" },
+  replyToId: { type: D.UUID, field: "reply_to_id" },
+  hiddenFor: { type: D.TEXT, field: "hidden_for", defaultValue: "[]" },
   createdAt: { type: D.DATE, defaultValue: D.NOW, field: "created_at" },
 });
 export const PushSubscription = model("PushSubscription", "push_subscriptions", {

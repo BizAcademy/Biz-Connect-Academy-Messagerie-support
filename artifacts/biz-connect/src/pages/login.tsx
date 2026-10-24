@@ -11,7 +11,7 @@ export default function LoginPage({ session }: { session: Session | undefined })
   const [, navigate] = useLocation();
   const [username, setUsername] = useState("");
   const [credential, setCredential] = useState("");
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const done = (s: Session) => {
@@ -81,8 +81,8 @@ export default function LoginPage({ session }: { session: Session | undefined })
                 id="login-credential"
                 value={credential}
                 onChange={(e) => setCredential(e.target.value)}
-                type={show ? "text" : "password"}
-                autoComplete="current-password"
+                type={show ? "tel" : "password"}
+                autoComplete="tel"
                 maxLength={200}
                 placeholder="Numéro de téléphone"
                 className={`${field} pr-12`}
@@ -100,7 +100,7 @@ export default function LoginPage({ session }: { session: Session | undefined })
                 {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </label>
-            <p className="-mt-3 px-1 text-[12.5px] text-[#6F8096]">Saisissez le numéro tel qu’enregistré sur votre compte, avec ou sans indicatif +.</p>
+            <p className="-mt-3 px-1 text-[12.5px] text-[#6F8096]">Indicatif du pays obligatoire : commencez par +, par exemple +237 658706264 pour le Cameroun.</p>
           </div>
 
           {error && (

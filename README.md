@@ -54,6 +54,24 @@ d’interruption. Conserver une sauvegarde avant toute évolution de schéma.
 Des droits ALTER/INDEX sont nécessaires ; aucun build sur Plesk n’est requis.
 Une base neuve initialisée avec cette distribution utilise déjà le nouvel index.
 
+### Mise à jour : réponses citées et suppressions de messages
+
+Après sauvegarde et déploiement de cette version sur une base MariaDB existante,
+exécuter également **Run script → `db:upgrade`**, puis **Restart App**.
+Cette commande ajoute `messages.reply_to_id` et `messages.hidden_for` sans
+effacer les messages. Elle peut être relancée. Ne pas réimporter le schéma initial.
+La migration n’est jamais exécutée implicitement au démarrage.
+
+Le fil charge 100 messages récents et permet de charger les pages précédentes.
+Glisser un message vers la gauche prépare une réponse citée ; l’appui long (ou
+le menu du message sur ordinateur) permet de répondre ou de supprimer.
+À la demande du propriétaire, **tout participant autorisé de la conversation**
+peut retirer un message reçu ou envoyé pour tout le monde, après confirmation.
+« Supprimer pour moi » ne le masque que pour le compte concerné et reste
+effectif sur ses autres appareils. Un message déjà vu ou affiché dans une
+notification système ne peut pas être effacé de la mémoire du destinataire.
+Les notifications affichent le nom et un aperçu, selon les réglages du téléphone.
+
 ### Installation et notifications téléphone
 
 La notice d’installation s’affiche dès l’entrée, avant toute session, et propose

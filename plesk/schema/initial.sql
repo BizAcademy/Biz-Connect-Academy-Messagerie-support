@@ -86,3 +86,5 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_conversation_id_conversations_id
 ALTER TABLE "messages" ADD CONSTRAINT "messages_file_id_files_id_fk" FOREIGN KEY ("file_id") REFERENCES "public"."files"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "messages_conversation_created_idx" ON "messages" USING btree ("conversation_id","created_at");--> statement-breakpoint
 CREATE INDEX "messages_unread_idx" ON "messages" USING btree ("conversation_id","is_read");
+ALTER TABLE "messages" ADD COLUMN "reply_to_id" uuid;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "hidden_for" text DEFAULT '[]' NOT NULL;

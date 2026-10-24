@@ -104,5 +104,16 @@ Voir README pour sauvegardes et prérequis.
   et terminer avec un envoi manuel explicite. Ne pas envoyer à la simple fin
   d’un maintien ; conserver l’aperçu en cas d’échec pour permettre de réessayer.
 - Le destinataire peut écouter en **1×, 1,5× ou 2×**.
+- Toute nouvelle session membre demande un numéro international commençant par
+  **+ et l’indicatif du pays**. Ne pas réécrire les anciens comptes ni deviner
+  leur pays. Les identifiants administrateurs existants restent utilisables.
+- L’utilisateur demande le nom de l’expéditeur et un aperçu du message dans les
+  notifications. Les réglages de confidentialité du téléphone restent prioritaires.
+- À la demande de l’utilisateur, les deux participants peuvent supprimer un
+  message reçu ou envoyé pour tout le monde, après confirmation explicite.
+  La suppression personnelle ne concerne que le compte qui la demande.
+- Installation et notifications : guides illustrés avec commandes ciblées sur
+  iPhone/iPad, Android et ordinateur lorsqu’une demande native est impossible.
+  Ne jamais promettre qu’un site peut autoriser ou ouvrir les réglages système.
 - Le déploiement Plesk ne doit pas exiger une installation système manuelle
   d’un outil audio ni une configuration supplémentaire pour les vocaux.

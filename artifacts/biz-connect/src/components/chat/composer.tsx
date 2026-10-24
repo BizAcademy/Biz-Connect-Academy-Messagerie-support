@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, ArrowUp, ChevronLeft, ChevronUp, ImagePlus, Loader2, Lock, Mic, Pause, RotateCw, Send, Square, Trash2, X } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import {
   getGetMessagesQueryKey,
   getGetSummaryQueryKey,
@@ -24,7 +24,7 @@ const CANCEL_DX = 110;
 const UPLOAD_DEADLINE = 90_000;
 const SEND_DEADLINE = 25_000;
 
-type VoiceDraft = { conversationId: string; blob: Blob; url: string; duration: number; fileId?: string };
+type VoiceDraft = { conversationId: string; blob: Blob; url: string; duration: number; fileId?: string; replyToId?: string };
 type VoiceSend = { status: "idle" | "uploading" | "sending" | "error"; error?: string };
 
 async function withDeadline<T>(ms: number, run: (signal: AbortSignal) => Promise<T>, outer: AbortSignal): Promise<T> {
@@ -49,7 +49,7 @@ async function withDeadline<T>(ms: number, run: (signal: AbortSignal) => Promise
   }
 }
 
-export function Composer({ conversationId }: { conversationId: string }) {
+export function Composer({ conversationId, replyTo, onClearReply }: { conversationId: string; replyTo?: Message | null; onClearReply?: () => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { emitTyping } = useRealtime();
@@ -67,6 +67,12 @@ export function Composer({ conversationId }: { conversationId: string }) {
   const busy = send.isPending || upload.isPending;
 
   const pushMessage = (m: Message) => {
+    qc.setQueryData<InfiniteData<{ messages: Message[]; cursor: string }>>(["chat-history", m.conversationId], (old) => {
+      if (!old?.pages.length) return old;
+      return { ...old, pages: old.pages.map((page, i) => i === 0 ? { ...page, messages: page.messages.some((x) => x.id === m.id) ? page.messages : [...page.messages, m] } : page) };
+    });
+    void qc.invalidateQueries({ queryKey: ["chat-history", m.conversationId] });
+    onClearReply?.();
     qc.setQueryData<Message[]>(getGetMessagesQueryKey(m.conversationId), (old) =>
       old ? (old.some((x) => x.id === m.id) ? old : [...old, m]) : [m],
     );
@@ -75,7 +81,7 @@ export function Composer({ conversationId }: { conversationId: string }) {
   };
   const sendData = (data: MessageInput, onDone?: () => void) =>
     send.mutate(
-      { id: conversationId, data },
+      { id: conversationId, data: { ...data, ...(replyTo ? { replyToId: replyTo.id } : {}) } },
       {
         onSuccess: (m) => {
           pushMessage(m);
@@ -169,6 +175,7 @@ export function Composer({ conversationId }: { conversationId: string }) {
   const sendAbort = useRef<AbortController | null>(null);
   const gesture = useRef<{ id: number; x: number; y: number; t: number } | null>(null);
   const modeRef = useRef(mode);
+  const sendWhenReady = useRef(false);
   modeRef.current = mode;
 
   const recorder = useVoiceRecorder(
@@ -180,7 +187,7 @@ export function Composer({ conversationId }: { conversationId: string }) {
       }
       setRecErr(null);
       setVsend({ status: "idle" });
-      setDraft({ conversationId: recordingConversation.current, blob, url: URL.createObjectURL(blob), duration });
+      setDraft({ conversationId: recordingConversation.current, blob, url: URL.createObjectURL(blob), duration, replyToId: replyTo?.id });
     },
     (e) => setRecErr(e),
   );
@@ -235,7 +242,7 @@ export function Composer({ conversationId }: { conversationId: string }) {
       setVsend({ status: "sending" });
       const m = await withDeadline(
         SEND_DEADLINE,
-        (signal) => sendMessage(d.conversationId, { type: "voice", fileId, duration: Math.min(MAX_VOICE_SECONDS, d.duration) }, { signal }),
+        (signal) => sendMessage(d.conversationId, { type: "voice", fileId, duration: Math.min(MAX_VOICE_SECONDS, d.duration), ...(d.replyToId ? { replyToId: d.replyToId } : {}) }, { signal }),
         ctl.signal,
       );
       if (!alive()) return;
@@ -256,6 +263,7 @@ export function Composer({ conversationId }: { conversationId: string }) {
 
   const beginRecording = async (m: "hold" | "locked") => {
     if (recording || draft || busy) return;
+    sendWhenReady.current = false;
     setRecErr(null);
     modeRef.current = m;
     setMode(m);
@@ -263,6 +271,11 @@ export function Composer({ conversationId }: { conversationId: string }) {
     recordingConversation.current = convRef.current;
     await recRef.current.start();
   };
+  useEffect(() => {
+    if (!draft || !sendWhenReady.current) return;
+    sendWhenReady.current = false;
+    void sendVoice();
+  }, [draft]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onMicDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0 || recording || draft) return;
@@ -350,6 +363,25 @@ export function Composer({ conversationId }: { conversationId: string }) {
 
   return (
     <div data-voice-composer onPointerMove={onMicMove} onPointerUp={onMicUp} onPointerCancel={onMicCancel} onLostPointerCapture={onMicCancel} className="relative border-t bg-card/90 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}>
+      {replyTo && <div className="mx-auto flex max-w-3xl items-center gap-3 border-l-4 border-primary bg-muted px-4 py-2" data-testid="reply-preview">
+        <div className="min-w-0 flex-1 text-sm"><p className="font-semibold text-primary">{replyTo.senderName}</p><p className="truncate text-muted-foreground">{replyTo.content || (replyTo.type === "voice" ? "Message vocal" : "Photo")}</p></div>
+        <button type="button" onClick={() => { if (draftRef.current) draftRef.current.replyToId = undefined; onClearReply?.(); }} className="p-2" aria-label="Annuler la réponse"><X className="h-5 w-5" /></button>
+      </div>}
+      {recording && mode === "locked" && <div className="mx-auto max-w-3xl space-y-5 px-4 py-5" data-testid="panel-locked-recording">
+        <div className="flex items-center justify-between gap-5">
+          <span className="font-mono-num text-3xl" data-testid="text-recording-time">{recorder.phase === "requesting" ? "Micro…" : formatDuration(recorder.elapsed)}</span>
+          <div className="flex h-8 items-center gap-1" aria-label={recorder.phase === "paused" ? "En pause" : "Enregistrement en cours"}>
+            {Array.from({ length: 21 }, (_, i) => <span key={i} className={cn("w-1 rounded-full bg-primary/60", recorder.phase === "recording" && "animate-pulse")} style={{ height: `${5 + ((i * 13) % 23)}px`, animationDelay: `${i * 60}ms` }} />)}
+          </div>
+          <Lock className="h-5 w-5 shrink-0 text-primary" aria-label="Mains libres" />
+        </div>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => { sendWhenReady.current = false; recorder.cancel(); }} className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-destructive/10 text-destructive" aria-label="Annuler l’enregistrement" data-testid="button-cancel-recording"><Trash2 className="h-6 w-6" /></button>
+          {recorder.canPause && recorder.phase !== "requesting" ? <button type="button" onClick={() => recorder.phase === "paused" ? recorder.resume() : recorder.pause()} className="flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-muted px-3 text-base font-semibold" data-testid={recorder.phase === "paused" ? "button-resume-recording" : "button-pause-recording"}>{recorder.phase === "paused" ? <Mic className="h-5 w-5" /> : <Pause className="h-5 w-5" />}{recorder.phase === "paused" ? "Continuer" : "Pause"}</button> : <span className="flex-1 text-center text-sm text-muted-foreground">Mains libres</span>}
+          <button type="button" disabled={recorder.phase === "requesting"} onClick={() => { sendWhenReady.current = true; recorder.stop(); }} className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-out text-white disabled:opacity-50" aria-label="Envoyer le message vocal" data-testid="button-send-recording"><Send className="h-6 w-6" /></button>
+        </div>
+        <button type="button" disabled={recorder.phase === "requesting"} onClick={() => recorder.stop()} className="mx-auto flex items-center gap-2 text-xs text-muted-foreground" data-testid="button-stop-recording"><Square className="h-3 w-3" />Terminer et écouter avant d’envoyer</button>
+      </div>}
       {preview && (
         <div className="absolute inset-x-0 bottom-full border-t bg-card p-3 shadow-[0_-12px_30px_-18px_rgba(11,27,63,0.4)] animate-in slide-in-from-bottom-4 duration-200" data-testid="panel-image-preview">
           <div className="mx-auto flex max-w-3xl gap-3">
@@ -416,7 +448,7 @@ export function Composer({ conversationId }: { conversationId: string }) {
         </div>
       )}
 
-      <div className="mx-auto flex max-w-3xl items-end gap-2 px-2 py-2 sm:px-4">
+      <div className={cn("mx-auto max-w-3xl items-end gap-2 px-2 py-2 sm:px-4", recording && mode === "locked" ? "hidden" : "flex")}>
         {draft ? (
           <div className="flex min-w-0 flex-1 flex-col gap-1.5" data-testid="panel-voice-preview">
             <div className="flex min-w-0 items-center gap-1.5">

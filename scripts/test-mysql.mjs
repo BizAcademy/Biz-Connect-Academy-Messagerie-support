@@ -70,11 +70,11 @@ try {
     CYBRANCEE_DB_HOST: "127.0.0.1", CYBRANCEE_DB_PORT: String(port), CYBRANCEE_DB_NAME: "bca_test",
     CYBRANCEE_DB_USER: "bca_fixture", CYBRANCEE_DB_PASSWORD: password, VAPID_SUBJECT: "",
     ADMIN_USERNAME: "Support vérification", ADMIN_PASSWORD: "temporary-admin-password",
-    MEMBER_USERNAME: "Membre é 👋", MEMBER_NUMBER: "ACA-LOCAL-001" };
+    MEMBER_USERNAME: "Membre é 👋", MEMBER_NUMBER: "+237600000101" };
   run(["admin.cjs"], env);
   run(["admin.cjs"], env); // Idempotent create, not an automatic password reset.
   run(["member.cjs"], env);
-  run(["member.cjs"], { ...env, MEMBER_USERNAME: "Autre membre", MEMBER_NUMBER: "ACA-LOCAL-002" });
+  run(["member.cjs"], { ...env, MEMBER_USERNAME: "Autre membre", MEMBER_NUMBER: "+237600000102" });
   assert.match(run(["diagnose.cjs"], env), /Connexion MySQL\/MariaDB et requête en lecture seule réussies/);
   // A missing schema must be reported, not silently created.
   await connection.query("CREATE DATABASE bca_empty");

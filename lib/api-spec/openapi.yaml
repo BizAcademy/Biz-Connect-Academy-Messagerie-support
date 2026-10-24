@@ -115,9 +115,10 @@ paths:
       operationId: getMessages
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: before, in: query, required: false, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Messages ordered by creation time
+          description: Up to 100 messages ordered by creation time; X-History-Cursor identifies the next older page
           content:
             application/json:
               schema:
@@ -138,6 +139,19 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Message" }
+  /conversations/{id}/messages/{messageId}:
+    delete:
+      operationId: deleteMessage
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: messageId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: scope, in: query, required: true, schema: { type: string, enum: [me, everyone] } }
+      responses:
+        "200":
+          description: Message removed for the selected audience
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Success" }
   /conversations/{id}/read:
     post:
       operationId: markRead
@@ -289,6 +303,13 @@ components:
         duration: { type: [number, "null"] }
         status: { type: string, enum: [sent, delivered, read] }
         createdAt: { type: string, format: date-time }
+        replyTo:
+          type: [object, "null"]
+          required: [id, senderName, content]
+          properties:
+            id: { type: string }
+            senderName: { type: string }
+            content: { type: string }
     MessageInput:
       type: object
       required: [type]
@@ -296,6 +317,7 @@ components:
         type: { type: string, enum: [text, image, voice] }
         content: { type: string, maxLength: 10000 }
         fileId: { type: string, format: uuid }
+        replyToId: { type: string, format: uuid }
         duration: { type: number, minimum: 0, maximum: 300 }
     FileInput:
       type: object

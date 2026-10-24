@@ -137,6 +137,8 @@ try {
     assert.equal((await member.json() as any).account.role, "member");
     assert.equal((await login({ username: "  ", credential: "237600000101" })).status, 400);
     assert.equal((await login({ username: "NewFixture", credential: "abc" })).status, 400);
+    assert.equal((await login({ username: "NewFixture", credential: "658706264" })).status, 400, "Country calling code is mandatory for new sessions");
+    assert.equal((await login({ username: "NewFixture", credential: "00237658706264" })).status, 400, "Explicit plus country format is required");
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -86,13 +86,13 @@ export function ImageThumb({ src, onOpen }: { src: string; onOpen: (url: string,
     <button
       type="button"
       onClick={() => onOpen(url, blob)}
-      className="block overflow-hidden rounded-xl"
+      className="block w-full overflow-hidden rounded-xl"
       data-testid="button-open-image"
     >
       <img
         src={url}
         alt="Image partagée"
-        className="max-h-80 w-auto max-w-[min(18rem,70vw)] object-cover protected-media transition-transform duration-300 hover:scale-[1.02]"
+        className="block h-auto w-full protected-media"
         {...protect}
       />
     </button>

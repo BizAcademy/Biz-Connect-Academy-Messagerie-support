@@ -29,6 +29,8 @@ export const messagesTable = pgTable("messages", {
   duration: doublePrecision("duration"),
   status: text("status").notNull().default("sent"),
   isRead: boolean("is_read").notNull().default(false),
+  replyToId: uuid("reply_to_id"),
+  hiddenFor: text("hidden_for").notNull().default("[]"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("messages_conversation_created_idx").on(t.conversationId, t.createdAt),

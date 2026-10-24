@@ -46,6 +46,7 @@ export function RealtimeProvider({ account, children }: { account: Account; chil
     };
 
     socket.on("connect", () => {
+      void qc.invalidateQueries({ queryKey: ["chat-history"] });
       setStatus("online");
       // recover anything missed while disconnected
       void qc.invalidateQueries({
@@ -70,6 +71,7 @@ export function RealtimeProvider({ account, children }: { account: Account; chil
     });
 
     socket.on("changed", (p?: { conversationId?: string }) => {
+      void qc.invalidateQueries({ queryKey: p?.conversationId ? ["chat-history", p.conversationId] : ["chat-history"] });
       invalidateLists();
       if (p?.conversationId) void qc.invalidateQueries({ queryKey: getGetMessagesQueryKey(p.conversationId) });
       else

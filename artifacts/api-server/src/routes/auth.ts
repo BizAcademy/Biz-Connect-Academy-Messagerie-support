@@ -24,8 +24,8 @@ router.post("/auth/login", limiter, async (req, res) => {
   if (!username.trim()) { res.status(400).json({ error: "Veuillez renseigner votre nom d’utilisateur." }); return; }
   // Privileges come exclusively from the database, never a role sent by a client.
   const admin = await Admin.findOne({ where: { username: username.trim() } });
-  if (!admin && !normalizePhone(credential)) {
-    res.status(400).json({ error: "Renseignez un numéro de téléphone valide, avec 7 à 15 chiffres." }); return;
+  if (!admin && (!/^\+[1-9][\d\s().-]+$/.test(credential.trim()) || !normalizePhone(credential))) {
+    res.status(400).json({ error: "Le numéro doit commencer par + suivi de l’indicatif de votre pays, par exemple +237 6… (7 à 15 chiffres)." }); return;
   }
   const role = admin ? "admin" as const : "member" as const;
   let user;

@@ -8,6 +8,13 @@
       "when": 1792789973354,
       "tag": "0000_outgoing_mentor",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792872089830,
+      "tag": "0001_awesome_shard",
+      "breakpoints": true
     }
   ]
 }

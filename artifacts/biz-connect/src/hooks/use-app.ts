@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getGetSessionQueryKey, useGetSession } from "@workspace/api-client-react";
 import { onSessionRehydrate, setCsrfToken } from "@/lib/api-fetch";
 
@@ -48,37 +48,36 @@ export function useTheme() {
 }
 export const initTheme = () => applyTheme(read());
 
-export function useBlobUrl(src: string | null | undefined) {
+export function useBlobUrl(src: string | null | undefined, enabled = true) {
+  const media = useQuery({
+    queryKey: ["private-media", src],
+    enabled: !!src && enabled,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    retry: 1,
+    queryFn: async ({ signal }) => {
+      const response = await fetch(src!, { credentials: "same-origin", signal });
+      if (!response.ok) throw new Error("Média indisponible");
+      return response.blob();
+    },
+  });
   const [state, setState] = useState<{ url: string | null; blob: Blob | null; error: boolean }>({
     url: null,
     blob: null,
     error: false,
   });
   useEffect(() => {
-    if (!src) {
+    if (!media.data) {
       setState({ url: null, blob: null, error: false });
       return;
     }
-    let alive = true;
-    let objectUrl: string | null = null;
-    setState({ url: null, blob: null, error: false });
-    fetch(src, { credentials: "same-origin" })
-      .then((r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.blob();
-      })
-      .then((b) => {
-        if (!alive) return;
-        objectUrl = URL.createObjectURL(b);
-        setState({ url: objectUrl, blob: b, error: false });
-      })
-      .catch(() => alive && setState({ url: null, blob: null, error: true }));
+    const objectUrl = URL.createObjectURL(media.data);
+    setState({ url: objectUrl, blob: media.data, error: false });
     return () => {
-      alive = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      URL.revokeObjectURL(objectUrl);
     };
-  }, [src]);
-  return state;
+  }, [media.data]);
+  return { ...state, error: media.isError };
 }
 
 export function useDebounced<T>(value: T, ms: number) {

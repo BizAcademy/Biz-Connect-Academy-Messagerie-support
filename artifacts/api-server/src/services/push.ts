@@ -42,7 +42,8 @@ export async function sendMessagePush(identity: Identity, userId: string, messag
       await webPush.sendNotification({
         endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth },
       }, JSON.stringify({
-        title: "BCA Messenger", body: "Vous avez reçu un nouveau message.",
+        title: message.senderName || (identity.role === "admin" ? "Support BCA" : "Membre"),
+        body: (message.type === "voice" ? "Message vocal" : message.type === "image" ? `Photo${message.content ? " : " + message.content : ""}` : message.content || "Nouveau message").slice(0, 240),
         conversationId: message.conversationId, tag: message.conversationId,
       }), { TTL: 86400, urgency: "high", timeout: 10000 });
     } catch (err: any) {

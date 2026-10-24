@@ -137,6 +137,10 @@ export const GetMessagesParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
 
+export const GetMessagesQueryParams = zod.object({
+  "before": zod.coerce.string().uuid().optional()
+})
+
 export const GetMessagesResponseItem = zod.object({
   "id": zod.string(),
   "conversationId": zod.string(),
@@ -149,7 +153,12 @@ export const GetMessagesResponseItem = zod.object({
   "fileUrl": zod.string().nullable(),
   "duration": zod.number().nullable(),
   "status": zod.enum(['sent', 'delivered', 'read']),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "replyTo": zod.object({
+  "id": zod.string(),
+  "senderName": zod.string(),
+  "content": zod.string()
+}).nullish()
 })
 export const GetMessagesResponse = zod.array(GetMessagesResponseItem)
 
@@ -169,6 +178,7 @@ export const SendMessageBody = zod.object({
   "type": zod.enum(['text', 'image', 'voice']),
   "content": zod.string().max(sendMessageBodyContentMax).optional(),
   "fileId": zod.string().uuid().optional(),
+  "replyToId": zod.string().uuid().optional(),
   "duration": zod.number().min(sendMessageBodyDurationMin).max(sendMessageBodyDurationMax).optional()
 })
 
@@ -184,7 +194,26 @@ export const SendMessageResponse = zod.object({
   "fileUrl": zod.string().nullable(),
   "duration": zod.number().nullable(),
   "status": zod.enum(['sent', 'delivered', 'read']),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "replyTo": zod.object({
+  "id": zod.string(),
+  "senderName": zod.string(),
+  "content": zod.string()
+}).nullish()
+})
+
+
+export const DeleteMessageParams = zod.object({
+  "id": zod.coerce.string().uuid(),
+  "messageId": zod.coerce.string().uuid()
+})
+
+export const DeleteMessageQueryParams = zod.object({
+  "scope": zod.enum(['me', 'everyone'])
+})
+
+export const DeleteMessageResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 

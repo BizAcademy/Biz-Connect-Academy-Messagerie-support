@@ -49,6 +49,7 @@ async function main() {
       uri: process.env.DATABASE_URL.replace(/^mariadb:/, "mysql:"), connectTimeout: 5000, multipleStatements: false,
     });
     await upgradePairIndex(client);
+    await upgradeMessageFeatures(client);
     console.log("[OK] Sessions par nom et téléphone prêtes. Comptes, conversations et messages conservés. Redémarrez l’application.");
   } catch (error) {
     const safe = require("./startup-report.cjs").safeError(error);
@@ -57,5 +58,12 @@ async function main() {
     process.exitCode = 1;
   } finally { if (client) client.destroy(); }
 }
-module.exports = { upgradePairIndex };
+async function upgradeMessageFeatures(client) {
+  const [columns] = await client.query({ sql: "SHOW COLUMNS FROM messages", timeout: 5000 });
+  const names = new Set(columns.map((c) => c.Field));
+  if (!names.has("reply_to_id")) await client.query({ sql: "ALTER TABLE messages ADD COLUMN reply_to_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL", timeout: 20000 });
+  if (!names.has("hidden_for")) await client.query({ sql: "ALTER TABLE messages ADD COLUMN hidden_for TEXT NOT NULL DEFAULT '[]'", timeout: 20000 });
+  console.log("[OK] Réponses citées et suppression personnelle prêtes. Historique conservé.");
+}
+module.exports = { upgradePairIndex, upgradeMessageFeatures };
 if (require.main === module) main();

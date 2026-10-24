@@ -28,8 +28,10 @@ import type {
   Account,
   Conversation,
   ConversationUpdate,
+  DeleteMessageParams,
   DemoInput,
   FileInput,
+  GetMessagesParams,
   HealthStatus,
   InboxSummary,
   ListConversationsParams,
@@ -844,17 +846,26 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getUpdateConversationMutationOptions(options), queryClient);
     }
 
-export const getGetMessagesUrl = (id: string,) => {
+export const getGetMessagesUrl = (id: string,
+    params?: GetMessagesParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/conversations/${id}/messages`
+  return stringifiedParams.length > 0 ? `/api/conversations/${id}/messages?${stringifiedParams}` : `/api/conversations/${id}/messages`
 }
 
-export const getMessages = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Message[]> => {
+export const getMessages = async (id: string,
+    params?: GetMessagesParams, options?: Parameters<typeof customFetch>[1]): Promise<Message[]> => {
 
-  return customFetch<Message[]>(getGetMessagesUrl(id),
+  return customFetch<Message[]>(getGetMessagesUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -867,23 +878,25 @@ export const getMessages = async (id: string, options?: Parameters<typeof custom
 
 
 
-export const getGetMessagesQueryKey = (id: string,) => {
+export const getGetMessagesQueryKey = (id: string,
+    params?: GetMessagesParams,) => {
     return [
-    `/api/conversations/${id}/messages`
+    `/api/conversations/${id}/messages`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetMessagesQueryOptions = <TData = Awaited<ReturnType<typeof getMessages>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export const getGetMessagesQueryOptions = <TData = Awaited<ReturnType<typeof getMessages>>, TError = ErrorType<unknown>>(id: string,
+    params?: GetMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetMessagesQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetMessagesQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMessages>>> = ({ signal }) => getMessages(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMessages>>> = ({ signal }) => getMessages(id,params, { signal, ...requestOptions });
 
 
 
@@ -897,7 +910,8 @@ export type GetMessagesQueryError = ErrorType<unknown>
 
 
 export function useGetMessages<TData = Awaited<ReturnType<typeof getMessages>>, TError = ErrorType<unknown>>(
- id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>> & Pick<
+ id: string,
+    params: undefined |  GetMessagesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getMessages>>,
           TError,
@@ -907,7 +921,8 @@ export function useGetMessages<TData = Awaited<ReturnType<typeof getMessages>>, 
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useGetMessages<TData = Awaited<ReturnType<typeof getMessages>>, TError = ErrorType<unknown>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>> & Pick<
+ id: string,
+    params?: GetMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getMessages>>,
           TError,
@@ -917,16 +932,18 @@ export function useGetMessages<TData = Awaited<ReturnType<typeof getMessages>>, 
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useGetMessages<TData = Awaited<ReturnType<typeof getMessages>>, TError = ErrorType<unknown>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ id: string,
+    params?: GetMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 
 export function useGetMessages<TData = Awaited<ReturnType<typeof getMessages>>, TError = ErrorType<unknown>>(
- id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ id: string,
+    params?: GetMessagesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetMessagesQueryOptions(id,options)
+  const queryOptions = getGetMessagesQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -1020,6 +1037,85 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getSendMessageMutationOptions(options), queryClient);
+    }
+
+export const getDeleteMessageUrl = (id: string,
+    messageId: string,
+    params: DeleteMessageParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/conversations/${id}/messages/${messageId}?${stringifiedParams}` : `/api/conversations/${id}/messages/${messageId}`
+}
+
+export const deleteMessage = async (id: string,
+    messageId: string,
+    params: DeleteMessageParams, options?: Parameters<typeof customFetch>[1]): Promise<Success> => {
+
+  return customFetch<Success>(getDeleteMessageUrl(id,messageId,params),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteMessageMutationKey = () => ['deleteMessage'] as const;
+
+export const getDeleteMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMessage>>, TError,DeleteMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMessage>>, TError,DeleteMessageMutationVariables, TContext> => {
+
+const mutationKey = getDeleteMessageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMessage>>, DeleteMessageMutationVariables> = (props) => {
+          const {id,messageId,params} = props ?? {};
+
+          return  deleteMessage(id,messageId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMessageMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMessage>>>
+
+    export type DeleteMessageMutationError = ErrorType<unknown>
+    export type DeleteMessageMutationVariables = {id: string;messageId: string;params: DeleteMessageParams}
+
+    export const useDeleteMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMessage>>, TError,DeleteMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMessage>>,
+        TError,
+        DeleteMessageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteMessageMutationOptions(options), queryClient);
     }
 
 export const getMarkReadUrl = (id: string,) => {

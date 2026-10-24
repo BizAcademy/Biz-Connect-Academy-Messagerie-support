@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-const { upgradePairIndex } = createRequire(import.meta.url)("../plesk/upgrade-db.cjs");
+const { upgradePairIndex, upgradeMessageFeatures } = createRequire(import.meta.url)("../plesk/upgrade-db.cjs");
 export async function testUpgrade() {
   function fake({ pair = false, deny = false } = {}) {
     let indexes = [{ Key_name: "username", Column_name: "username", Seq_in_index: 1, Non_unique: 0, Sub_part: null }];
@@ -42,3 +42,16 @@ export async function testUpgrade() {
   console.log("PASS: pair-index upgrade order, idempotence and failure preservation (simulated MySQL).");
 }
 await testUpgrade();
+const columns = new Set(["id", "content"]);
+const messageWrites = [];
+const messageClient = { query: async ({ sql }) => {
+  if (sql.startsWith("SHOW COLUMNS")) return [[...columns].map((Field) => ({ Field }))];
+  assert(sql.startsWith("ALTER TABLE messages ADD COLUMN "), "Only additive schema changes allowed");
+  const field = sql.match(/ADD COLUMN (\w+)/)[1];
+  messageWrites.push(sql); columns.add(field);
+  return [[]];
+} };
+await upgradeMessageFeatures(messageClient);
+await upgradeMessageFeatures(messageClient);
+assert.equal(messageWrites.length, 2, "Message columns are added exactly once, without deleting existing data");
+console.log("PASS: reply/deletion schema upgrade is additive and idempotent (simulated MySQL).");

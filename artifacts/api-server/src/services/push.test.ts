@@ -24,13 +24,14 @@ try {
     sent++;
     const data = JSON.parse(body);
     assert.equal(data.conversationId, "conversation");
-    assert.equal(data.body, "Vous avez reçu un nouveau message.");
+    assert.equal(data.body, "Bonjour, votre demande est traitée.");
+    assert.equal(data.title, "Support BCA");
     assert.equal(options.urgency, "high");
     assert.equal(options.TTL, 86400);
     return {};
   }) as typeof webPush.sendNotification;
   assert(!validPushEndpoint("https://attacker.invalid/push"));
-  await sendMessagePush({ id: "support", role: "admin" }, "member", { conversationId: "conversation" });
+  await sendMessagePush({ id: "support", role: "admin" }, "member", { conversationId: "conversation", senderName: "Support BCA", type: "text", content: "Bonjour, votre demande est traitée." });
   assert.equal(sent, 1, "Only the active subscription owned by the recipient receives the push");
   webPush.sendNotification = (async () => { throw { statusCode: 410 }; }) as typeof webPush.sendNotification;
   await sendMessagePush({ id: "support", role: "admin" }, "member", { conversationId: "conversation" });

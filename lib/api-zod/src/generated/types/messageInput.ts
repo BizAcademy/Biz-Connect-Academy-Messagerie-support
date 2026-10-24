@@ -12,6 +12,7 @@ export interface MessageInput {
   /** @maxLength 10000 */
   content?: string;
   fileId?: string;
+  replyToId?: string;
   /**
      * @minimum 0
      * @maximum 300

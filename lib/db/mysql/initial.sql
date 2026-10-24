@@ -71,6 +71,8 @@ CREATE TABLE messages (
   duration DOUBLE,
   status VARCHAR(16) NOT NULL DEFAULT 'sent',
   is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  reply_to_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin,
+  hidden_for TEXT NOT NULL DEFAULT '[]',
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   CONSTRAINT messages_conversation_fk FOREIGN KEY (conversation_id) REFERENCES conversations(id),
   CONSTRAINT messages_file_fk FOREIGN KEY (file_id) REFERENCES files(id),

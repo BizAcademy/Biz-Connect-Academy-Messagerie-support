@@ -17,15 +17,15 @@ export async function inbox(identity: Identity) {
       CASE WHEN u.avatar_file_id IS NULL THEN NULL ELSE ${avatar} END AS "avatarUrl",
       c.favorite, c.last_message_at AS "lastMessageAt",
       COALESCE((SELECT CASE WHEN m.type='image' THEN 'Photo' WHEN m.type='voice' THEN 'Message vocal'
-        ELSE m.content END FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1), 'Commencez la conversation') AS "lastMessage",
-      (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_role <> :role AND NOT m.is_read) AS "unreadCount",
-      (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id) AS "messageCount",
+        ELSE m.content END FROM messages m WHERE m.conversation_id=c.id AND m.hidden_for NOT LIKE :hidden ORDER BY m.created_at DESC LIMIT 1), 'Commencez la conversation') AS "lastMessage",
+      (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.sender_role <> :role AND NOT m.is_read AND m.hidden_for NOT LIKE :hidden) AS "unreadCount",
+      (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id AND m.hidden_for NOT LIKE :hidden) AS "messageCount",
       p.last_seen AS "lastSeen"
     FROM conversations c JOIN users u ON u.id=c.user_id LEFT JOIN presence p ON p.account_id=u.id
     WHERE (:role = 'admin' OR ${accountId} = :accountId)
       AND (:role = 'member' OR EXISTS(SELECT 1 FROM messages m WHERE m.conversation_id=c.id AND m.sender_role='member'))
     ORDER BY c.last_message_at DESC
-  `, { replacements: { role: identity.role, accountId: identity.id }, type: QueryTypes.SELECT });
+  `, { replacements: { role: identity.role, accountId: identity.id, hidden: `%${identity.role}:${identity.id}%` }, type: QueryTypes.SELECT });
   const supportPresence = identity.role === "member" ? await Presence.findOne({ where: { role: "admin" }, order: [["lastSeen", "DESC"]] }) : null;
   return rows.map((r) => ({
     ...r,
@@ -50,13 +50,27 @@ export function serializeMessage(row: any, sender?: any) {
 export async function serializeMessages(rows: any[]) {
   if (!rows.length) return [];
   const data = rows.map((r) => typeof r.get === "function" ? r.get() : r);
-  const ids = (role: string) => [...new Set(data.filter((m) => m.senderRole === role).map((m) => m.senderId))];
+  const replyIds = [...new Set(data.map((m) => m.replyToId).filter(Boolean))];
+  const originals = replyIds.length ? await MessageRecord.findAll({ where: { id: { [Op.in]: replyIds } } }) : [];
+  const originalMap = new Map(originals.map((r) => [r.get("id"), r.get()]));
+  const allSenders = [...data, ...originals.map((r) => r.get())];
+  const ids = (role: string) => [...new Set(allSenders.filter((m) => m.senderRole === role).map((m) => m.senderId))];
   const [members, admins] = await Promise.all([
     User.findAll({ where: { id: { [Op.in]: ids("member") } }, attributes: ["id", "username", "avatarFileId"] }),
     Admin.findAll({ where: { id: { [Op.in]: ids("admin") } }, attributes: ["id", "username", "avatarFileId"] }),
   ]);
   const senders = new Map([...members, ...admins].map((s) => [s.get("id"), s.get()]));
-  return data.map((m) => serializeMessage(m, senders.get(m.senderId)));
+  return data.map((m) => {
+    const original = originalMap.get(m.replyToId);
+    return {
+      ...serializeMessage(m, senders.get(m.senderId)),
+      replyTo: original && original.conversationId === m.conversationId ? {
+        id: original.id,
+        senderName: senders.get(original.senderId)?.username || (original.senderRole === "admin" ? "Support BCA" : "Membre"),
+        content: original.type === "voice" ? "Message vocal" : original.type === "image" ? `Photo ${original.content}`.trim() : original.content.slice(0, 500),
+      } : null,
+    };
+  });
 }
 export async function deliverPending(conversationId: string, identity: Identity) {
   const [count] = await MessageRecord.update({ status: "delivered" }, { where: {
