@@ -77,7 +77,9 @@ réseau, mode silencieux) : leur affichage physique n’est pas garanti par le s
 
 - Node.js **22 LTS ou plus récent**, npm, accès réseau à npm pour l’installation.
 - MySQL 8 / MariaDB 10.6+ pour Cybrancee ; PostgreSQL également pris en charge.
-- FFmpeg/FFprobe accessible au serveur pour mesurer la durée réelle des vocaux.
+- FFprobe fourni par les dépendances d’exécution pour mesurer la durée réelle
+  des vocaux, sans installation système manuelle. L’hébergement doit autoriser
+  l’exécution de ce binaire ; FFPROBE_PATH reste une surcharge facultative.
 - HTTPS pour les cookies de production, le micro, la PWA et le Web Push.
 - Disque **persistant** et privé, hors document root. Ne pas utiliser un système
   de fichiers éphémère pour les pièces jointes réelles.
@@ -260,8 +262,9 @@ Passenger, au démarrage ou dans l'action « Deploy Now ».
    aucun script ni nouvelle variable n’est requis. Le provisionnement manuel
    reste facultatif via `node plesk/member.cjs`, avec `MEMBER_USERNAME`,
    `MEMBER_NUMBER` et éventuellement `MEMBER_PHONE`. Aucun outil de build requis.
-8. **Vocaux et réseau** : installer FFprobe via le mécanisme autorisé par l'offre,
-   renseigner `FFPROBE_PATH` si nécessaire. Sans lui, les vocaux sont refusés.
+8. **Vocaux et réseau** : FFprobe est inclus dans les dépendances d’exécution
+   installées par deploy, sans build ni configuration supplémentaire. Le script
+   vérifie son exécution. Un FFPROBE_PATH personnalisé reste facultatif.
    Autoriser WebSocket et HTTP long-polling sur `/api/socket.io/`, transmettre
    `Upgrade`, `Connection`, `Host`, `X-Forwarded-Proto=https` et `X-Forwarded-For`.
    Un niveau de proxy est approuvé. Ne pas exposer le port Node directement.

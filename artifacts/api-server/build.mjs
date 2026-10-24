@@ -37,6 +37,7 @@ async function buildAll() {
     external: [
       "*.node",
       "sharp",
+      "@ffprobe-installer/ffprobe",
       "better-sqlite3",
       "sqlite3",
       "canvas",

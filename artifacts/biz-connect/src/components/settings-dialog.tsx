@@ -3,11 +3,8 @@ import { useLocation } from "wouter";
 import { Bell, BellOff, Camera, Loader2, LogOut, Moon, Phone, ShieldCheck, Sun, Volume2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  getGetPushConfigQueryKey,
   getGetSessionQueryKey,
-  useGetPushConfig,
   useLogout,
-  useSubscribePush,
   useUpdateProfile,
   useUploadFile,
   type Account,
@@ -19,7 +16,7 @@ import { UserAvatar } from "@/components/chat/media";
 import { useTheme } from "@/hooks/use-app";
 import { useToast } from "@/hooks/use-toast";
 import { cropAvatar } from "@/lib/chat-utils";
-import { browserPushSubscription } from "@/lib/browser-push";
+import { usePushActivation, usePushConfiguration } from "@/hooks/use-push-activation";
 import { errorMessage } from "@/lib/api-fetch";
 import { cn } from "@/lib/utils";
 
@@ -44,13 +41,12 @@ export function SettingsDialog({ open, onOpenChange, account }: { open: boolean;
   const fileRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<{ blob: Blob; url: string } | null>(null);
   const [sound, setSound] = useState(localStorage.getItem("bca-sound") !== "off");
-  const [perm, setPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
-  const [enabling, setEnabling] = useState(false);
 
   const upload = useUploadFile();
   const updateProfile = useUpdateProfile();
-  const push = useGetPushConfig({ query: { queryKey: getGetPushConfigQueryKey(), enabled: open, staleTime: 300_000 } });
-  const subscribe = useSubscribePush();
+  const push = usePushConfiguration(open);
+  const { busy: enabling, ready: pushReady, permission: perm, error: pushError, supported: supportsPush, needsInstall, enable } =
+    usePushActivation(account, push.data?.enabled ? push.data.publicKey : null);
   const logout = useLogout();
 
   const pickAvatar = async (f?: File) => {
@@ -87,24 +83,9 @@ export function SettingsDialog({ open, onOpenChange, account }: { open: boolean;
     );
   };
 
-  const supportsPush = typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined";
   const enableNotifications = async () => {
-    if (!push.data?.enabled || !push.data.publicKey) return;
-    setEnabling(true);
-    try {
-      const p = await Notification.requestPermission();
-      setPerm(p);
-      if (p !== "granted") {
-        toast({ title: "Notifications refusées", description: "Vous pouvez les autoriser depuis les réglages du navigateur." });
-        return;
-      }
-      const data = await browserPushSubscription(push.data.publicKey);
-      await subscribe.mutateAsync({ data });
+    if (await enable(true)) {
       toast({ title: "Notifications activées", description: "Vous serez prévenu des nouveaux messages." });
-    } catch (e) {
-      toast({ title: "Activation impossible", description: errorMessage(e, "L'abonnement aux notifications a échoué."), variant: "destructive" });
-    } finally {
-      setEnabling(false);
     }
   };
 
@@ -201,30 +182,37 @@ export function SettingsDialog({ open, onOpenChange, account }: { open: boolean;
             hint={
               push.isLoading
                 ? "Vérification de la configuration…"
+                : needsInstall
+                  ? "Sur iPhone ou iPad, ajoutez l’application à l’écran d’accueil depuis Safari, puis ouvrez-la."
                 : !supportsPush
                   ? "Ce navigateur ne prend pas en charge les notifications. Sur iPhone, installez d'abord l'application sur l'écran d'accueil."
+                  : pushError
+                    ? pushError
                   : push.isError
                     ? "Configuration indisponible pour le moment."
                     : !push.data?.enabled
                       ? "Les notifications push ne sont pas encore configurées sur le serveur (clés VAPID requises)."
                       : perm === "denied"
                         ? "Bloquées par le navigateur. Autorisez-les dans les réglages du site."
+                        : pushReady
+                          ? "Notifications activées sur cet appareil."
                         : perm === "granted"
-                          ? "Autorisées sur cet appareil."
+                          ? "Autorisation accordée. Activez l’enregistrement auprès du serveur."
                           : "Recevez une alerte même quand l'application est fermée."
             }
           >
-            {supportsPush && push.data?.enabled && perm !== "denied" && (
+            {supportsPush && !needsInstall && push.data?.enabled && perm !== "denied" && (
               <button
                 onClick={enableNotifications}
                 disabled={enabling}
+                aria-busy={enabling}
                 className={cn(
-                  "shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition active:scale-95",
+                  "min-h-11 shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition active:scale-95",
                   perm === "granted" ? "bg-secondary text-foreground" : "bg-primary text-primary-foreground",
                 )}
                 data-testid="button-enable-notifications"
               >
-                {enabling ? <Loader2 className="h-4 w-4 animate-spin" /> : perm === "granted" ? "Réactiver" : "Activer"}
+                {enabling ? <Loader2 aria-label="Activation en cours" className="h-4 w-4 animate-spin" /> : pushError ? "Réessayer" : pushReady ? "Réactiver" : "Activer"}
               </button>
             )}
           </Row>

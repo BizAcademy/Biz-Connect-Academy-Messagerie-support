@@ -15,9 +15,9 @@ export function MemberChat({ account, onOpenSettings }: { account: Account; onOp
 
   const header = (
     <div className="flex items-center gap-3 border-b bg-card/90 px-3 py-2 backdrop-blur-xl sm:px-5" style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}>
-      <UserAvatar name="BCA Messenger" team size={42} />
+      <UserAvatar name="Support BCA" team size={42} />
       <div className="min-w-0 flex-1">
-        <div className="truncate font-display text-[17px] leading-tight">Support BCA Messenger</div>
+        <div className="truncate font-display text-[17px] leading-tight">Support BCA</div>
         <div className="text-xs">
           {conv && typing[conv.id] ? <span className="font-medium text-[#16A34A]">un conseiller écrit…</span> : <ConnectionPill />}
         </div>

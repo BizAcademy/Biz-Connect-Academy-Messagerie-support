@@ -10,6 +10,7 @@ import { UpdateProfileBody, UpdateProfileResponse } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { authorizeConversation } from "../services/conversations";
 import { storePrivate, readPrivate, removePrivate, probeAudio } from "../services/storage";
+import { normalizeVoiceMime } from "../services/audio-probe";
 import { publicAccount, accountModel } from "../services/accounts";
 import { notifyConversation } from "../services/realtime";
 
@@ -27,13 +28,14 @@ router.post("/files", requireAuth, limitUploads, upload.single("file"), async (r
   let bytes = req.file.buffer, duration: number | null = null, mime = "";
   const detected = await fileTypeFromBuffer(bytes);
   if (purpose === "voice") {
-    if (!detected || !["audio/ogg", "video/ogg", "audio/webm", "video/webm", "audio/wav", "audio/mpeg", "audio/mp4", "video/mp4"].includes(detected.mime)) {
+    const voiceMime = detected && normalizeVoiceMime(detected.mime);
+    if (!voiceMime) {
       res.status(415).json({ error: "Format vocal non autorisé." }); return;
     }
     try { duration = await probeAudio(bytes); }
-    catch { res.status(400).json({ error: "Impossible de vérifier la durée du vocal. Vérifiez le fichier et la disponibilité de FFprobe sur le serveur." }); return; }
+    catch { res.status(400).json({ error: "Impossible de vérifier ce vocal. Réessayez ; si le problème persiste, lancez diagnose dans Plesk." }); return; }
     if (duration > 300.5) { res.status(400).json({ error: "Un vocal ne peut pas dépasser 5 minutes." }); return; }
-    mime = detected.mime === "video/webm" ? "audio/webm" : detected.mime === "video/mp4" ? "audio/mp4" : detected.mime;
+    mime = voiceMime;
   } else {
     if (bytes.length > 5 * 1024 * 1024) { res.status(413).json({ error: "Les images sont limitées à 5 Mo." }); return; }
     if (!detected || !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(detected.mime)) {

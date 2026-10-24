@@ -1,41 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, Loader2, X } from "lucide-react";
-import { getGetPushConfigQueryKey, useGetPushConfig, useSubscribePush, type Account } from "@workspace/api-client-react";
-import { browserPushSubscription, isInstalled, isIos } from "@/lib/browser-push";
-import { errorMessage } from "@/lib/api-fetch";
+import { type Account } from "@workspace/api-client-react";
+import { usePushActivation, usePushConfiguration } from "@/hooks/use-push-activation";
 
 /** Permission is requested only from a tap; granted subscriptions rebind after reopening a session. */
 export function NotificationPrompt({ account }: { account: Account }) {
   const [dismissed, setDismissed] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [permission, setPermission] = useState(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
-  const config = useGetPushConfig({ query: { queryKey: getGetPushConfigQueryKey(), staleTime: 300000 } });
-  const { mutateAsync } = useSubscribePush();
-  const key = config.data?.publicKey;
-  const supported = "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined";
-  const needsInstall = isIos() && !isInstalled();
-  const enable = useCallback(async (request: boolean) => {
-    if (!key || !supported || needsInstall) return;
-    setBusy(true); setError("");
-    try {
-      const p = request ? await Notification.requestPermission() : Notification.permission;
-      setPermission(p);
-      if (p !== "granted") return;
-      const data = await browserPushSubscription(key);
-      await mutateAsync({ data });
-      setReady(true);
-    } catch (e) { setError(errorMessage(e, "Activation impossible. Réessayez depuis les paramètres.")); }
-    finally { setBusy(false); }
-  }, [key, supported, needsInstall, mutateAsync]);
+  const config = usePushConfiguration();
+  const { ready, busy, error, permission, supported, needsInstall, enable, reconnectOnce } =
+    usePushActivation(account, config.data?.enabled ? config.data.publicKey : null);
+  useEffect(() => setDismissed(false), [account.id, account.role]);
   useEffect(() => {
-    setReady(false); setDismissed(false);
-    if (supported && Notification.permission === "granted") void enable(false);
-  }, [account.id, enable, supported]);
+    reconnectOnce();
+  }, [reconnectOnce]);
   if (ready || dismissed) return null;
   const message = needsInstall
-    ? "Sur iPhone, ajoutez BCA Messenger à l’écran d’accueil, ouvrez l’application installée puis activez les notifications."
+    ? "Sur iPhone ou iPad, ajoutez BCA Messenger à l’écran d’accueil depuis Safari, ouvrez l’application installée puis activez les notifications."
     : !supported ? "Pour les notifications sur téléphone, ouvrez BCA Messenger dans un navigateur compatible ou depuis l’écran d’accueil."
     : permission === "denied" ? "Les notifications sont bloquées. Autorisez-les dans les réglages du navigateur ou de votre téléphone."
     : config.isError ? "Le service de notifications est momentanément inaccessible."
@@ -46,10 +26,10 @@ export function NotificationPrompt({ account }: { account: Account }) {
       <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
       <div className="min-w-0 flex-1">
         <p className="font-semibold">Recevoir les notifications</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{message}</p>
-        {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
+        <p className="mt-0.5 break-words text-xs text-muted-foreground">{message}</p>
+        {error && <p role="alert" className="mt-1 break-words text-xs text-destructive">{error}</p>}
         {!needsInstall && supported && permission !== "denied" && config.data?.enabled && (
-          <button onClick={() => void enable(true)} disabled={busy} className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60" data-testid="button-enable-push">
+          <button onClick={() => void enable(true)} disabled={busy} aria-busy={busy} className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60" data-testid="button-enable-push">
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {busy ? "Activation…" : error ? "Réessayer" : "Activer les notifications"}
           </button>

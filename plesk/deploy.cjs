@@ -15,7 +15,7 @@ try {
   ]));
   let ready = fs.existsSync(stamp) && fs.readFileSync(stamp, "utf8") === fingerprint;
   if (ready) {
-    try { for (const name of ["sharp", "sequelize", "mysql2", "pg"]) require(name); }
+    try { for (const name of ["sharp", "sequelize", "mysql2", "pg", "@ffprobe-installer/ffprobe"]) require(name); }
     catch { ready = false; }
   }
   if (!ready) {
@@ -27,8 +27,14 @@ try {
       env: { ...process.env, NODE_ENV: "production", PATH: path.dirname(process.execPath) + path.delimiter + process.env.PATH },
     });
     if (result.status !== 0) throw new Error("Installation des dépendances échouée. Ne pas redémarrer cette version.");
-    for (const name of ["sharp", "sequelize", "mysql2", "pg"]) require(name);
+    for (const name of ["sharp", "sequelize", "mysql2", "pg", "@ffprobe-installer/ffprobe"]) require(name);
     fs.writeFileSync(stamp, fingerprint);
   } else console.log("Dépendances inchangées : aucune installation nécessaire.");
+  const audioProbe = require("@ffprobe-installer/ffprobe").path;
+  try { fs.accessSync(audioProbe, fs.constants.X_OK); }
+  catch { fs.chmodSync(audioProbe, 0o755); }
+  const audioCheck = spawnSync(audioProbe, ["-version"], { timeout: 5000, stdio: "ignore" });
+  if (audioCheck.status !== 0) throw new Error("Vérification audio indisponible. Vérifier les droits d’exécution de l’hébergement, puis relancer deploy.");
+  console.log("Vérification audio prête : aucune installation système de FFprobe nécessaire.");
   console.log("Version prête. Cliquer sur Restart App dans Plesk.");
 } catch (error) { console.error(error.message); process.exitCode = 1; }

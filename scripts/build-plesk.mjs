@@ -48,7 +48,7 @@ const pkg = {
   description: "BCA Messenger — distribution précompilée pour Plesk",
   engines: { node: ">=22.0.0" },
   scripts: { start: "node app.cjs", verify: "node verify.cjs", deploy: "node deploy.cjs", diagnose: "node diagnose.cjs", "db:init": "node init-db.cjs", "db:upgrade": "node upgrade-db.cjs", "admin:create": "node admin.cjs", "member:create": "node member.cjs" },
-  dependencies: { mysql2: await version("mysql2", dbRequire), pg: await version("pg", dbRequire), sequelize: await version("sequelize", apiRequire), sharp: await version("sharp", apiRequire) },
+  dependencies: { mysql2: await version("mysql2", dbRequire), pg: await version("pg", dbRequire), sequelize: await version("sequelize", apiRequire), sharp: await version("sharp", apiRequire), "@ffprobe-installer/ffprobe": await version("@ffprobe-installer/ffprobe", apiRequire) },
 };
 const packageText = JSON.stringify(pkg, null, 2) + "\n";
 const packagePath = path.join(releaseRoot, "package.json");

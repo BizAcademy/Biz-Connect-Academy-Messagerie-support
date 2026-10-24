@@ -41,7 +41,7 @@ export function serializeMessage(row: any, sender?: any) {
   const m = typeof row.get === "function" ? row.get() : row;
   return {
     id: m.id, conversationId: m.conversationId, senderId: m.senderId, senderRole: m.senderRole,
-    senderName: sender?.username || (m.senderRole === "admin" ? "Support BCA Messenger" : "Membre"),
+    senderName: sender?.username || (m.senderRole === "admin" ? "Support BCA" : "Membre"),
     senderAvatarUrl: sender?.avatarFileId ? `/api/files/${sender.avatarFileId}` : null,
     type: m.type, content: m.content, fileUrl: m.fileId ? `/api/files/${m.fileId}` : null,
     duration: m.duration ?? null, status: m.status, createdAt: new Date(m.createdAt).toISOString(),

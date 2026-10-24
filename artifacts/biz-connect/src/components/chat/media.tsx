@@ -5,6 +5,7 @@ import { formatDuration, initials } from "@/lib/chat-utils";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { BrandLogo } from "@/components/brand-logo";
+import { RATES, applyRate, pauseOthers, rateLabel } from "./voice-draft-player";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -183,26 +184,35 @@ export function AudioPlayer({ src, duration, mine }: { src: string; duration: nu
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
   const [len, setLen] = useState(duration ?? 0);
-  const bars = useRef(Array.from({ length: 28 }, (_, i) => 0.3 + Math.abs(Math.sin(i * 1.7 + src.length)) * 0.7)).current;
+  const [rate, setRate] = useState<number>(1);
+  const rateRef = useRef(rate);
+  rateRef.current = rate;
+  const bars = useRef(Array.from({ length: 24 }, (_, i) => 0.3 + Math.abs(Math.sin(i * 1.7 + src.length)) * 0.7)).current;
   const pct = len > 0 ? Math.min(1, pos / len) : 0;
+
+  useEffect(() => applyRate(ref.current, rate), [rate, url]);
 
   const toggle = () => {
     const a = ref.current;
     if (!a) return;
     if (a.paused) {
-      document.querySelectorAll("audio").forEach((o) => o !== a && o.pause());
+      pauseOthers(a);
+      applyRate(a, rateRef.current);
       void a.play().catch(() => undefined);
     } else a.pause();
   };
+  const cycleRate = () => setRate((r) => RATES[(RATES.indexOf(r as (typeof RATES)[number]) + 1) % RATES.length]!);
   const seek = (e: React.PointerEvent<HTMLDivElement>) => {
     const a = ref.current;
     if (!a || !len) return;
     const r = e.currentTarget.getBoundingClientRect();
-    a.currentTime = ((e.clientX - r.left) / r.width) * len;
+    a.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * len;
+    setPos(a.currentTime);
+    applyRate(a, rateRef.current);
   };
 
   return (
-    <div className="flex w-60 max-w-[68vw] items-center gap-3 py-0.5" data-testid="audio-player">
+    <div className="flex w-56 max-w-[62vw] items-center gap-2 py-0.5" data-testid="audio-player">
       <button
         type="button"
         onClick={toggle}
@@ -214,33 +224,51 @@ export function AudioPlayer({ src, duration, mine }: { src: string; duration: nu
       >
         {playing ? <Pause className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-4 w-4 fill-current" />}
       </button>
-      <div className="flex-1">
-        <div className="flex h-7 cursor-pointer items-center gap-[2px]" onPointerDown={seek}>
+      <div className="min-w-0 flex-1">
+        <div className="flex h-7 cursor-pointer touch-none items-center gap-[2px] overflow-hidden" onPointerDown={seek} data-testid="audio-seek">
           {bars.map((b, i) => (
             <span
               key={i}
-              className={cn("w-[3px] rounded-full transition-colors", i / bars.length < pct ? "bg-white" : "bg-white/35")}
+              className={cn("w-[3px] shrink-0 rounded-full transition-colors", i / bars.length < pct ? "bg-white" : "bg-white/35")}
               style={{ height: `${b * 100}%` }}
             />
           ))}
         </div>
-        <div className="mt-0.5 text-[11px] font-mono-num text-white/80">
-          {error ? "Audio indisponible" : formatDuration(playing || pos > 0 ? pos : len)}
+        <div className="mt-0.5 text-[11px] font-mono-num text-white/85" data-testid="text-audio-time">
+          {error ? "Audio indisponible" : playing || pos > 0 ? `${formatDuration(pos)} / ${formatDuration(len)}` : formatDuration(len)}
         </div>
       </div>
+      <button
+        type="button"
+        onClick={cycleRate}
+        disabled={!url}
+        className="h-7 min-w-[2.6rem] shrink-0 rounded-full bg-white/20 px-1.5 text-[11px] font-bold font-mono-num text-white transition active:scale-90 disabled:opacity-50"
+        aria-label={`Vitesse de lecture ${rateLabel(rate)}, changer`}
+        data-testid="button-audio-rate"
+      >
+        {rateLabel(rate)}
+      </button>
       {url && (
         <audio
           ref={ref}
           src={url}
           preload="metadata"
-          onPlay={() => setPlaying(true)}
+          onPlay={(e) => {
+            pauseOthers(e.currentTarget);
+            applyRate(e.currentTarget, rateRef.current);
+            setPlaying(true);
+          }}
           onPause={() => setPlaying(false)}
           onEnded={() => {
             setPlaying(false);
             setPos(0);
           }}
+          onRateChange={(e) => e.currentTarget.playbackRate !== rateRef.current && applyRate(e.currentTarget, rateRef.current)}
           onTimeUpdate={(e) => setPos(e.currentTarget.currentTime)}
-          onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setLen(e.currentTarget.duration)}
+          onLoadedMetadata={(e) => {
+            applyRate(e.currentTarget, rateRef.current);
+            if (Number.isFinite(e.currentTarget.duration) && e.currentTarget.duration > 0) setLen(e.currentTarget.duration);
+          }}
         />
       )}
     </div>

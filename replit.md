@@ -29,6 +29,14 @@ Messagerie privée française pour les membres de l’académie et les agents su
   place des marques provisoires. Le logo sur fond bleu est le logo principal de
   l’application, y compris sur l’écran d’ouverture de session, le favicon et
   l’icône de l’application installée. Conserver la variante colorée disponible.
+- La notice d’installation doit toujours proposer « Installer » et « Plus tard »,
+  sur téléphone, tablette et ordinateur. Si l’installation native n’est pas
+  disponible, « Installer » affiche les étapes adaptées au navigateur, sans
+  prétendre que l’application est installée.
+- Toute activation des notifications doit aboutir à une confirmation ou à une
+  erreur avec possibilité de réessayer, jamais à un chargement sans fin ni à une
+  boucle automatique. L’autorisation du navigateur n’est pas à elle seule une
+  confirmation de l’enregistrement auprès du serveur.
 - Sessions de chat par nom et téléphone, avec création technique automatique
   d’une identité membre si le couple est nouveau, explicitement demandée par
   l’utilisateur sans parcours d’inscription/connexion. Téléphone normalisé ;
@@ -86,3 +94,15 @@ externe confirmée, avec le SQL correspondant à son moteur : MySQL/MariaDB
 (`plesk/schema/initial-mysql.sql`) ou PostgreSQL (`plesk/schema/initial.sql`).
 Ne jamais convertir, vider ou réinitialiser une base existante automatiquement.
 Voir README pour sauvegardes et prérequis.
+
+## Vocaux et identité du support
+
+- Le nom affiché du support est **Support BCA**. Le nom de l’application reste
+  **BCA Messenger**.
+- Les vocaux doivent permettre de maintenir le micro, glisser vers le haut pour
+  verrouiller en mains libres, mettre en pause puis reprendre le même vocal,
+  et terminer avec un envoi manuel explicite. Ne pas envoyer à la simple fin
+  d’un maintien ; conserver l’aperçu en cas d’échec pour permettre de réessayer.
+- Le destinataire peut écouter en **1×, 1,5× ou 2×**.
+- Le déploiement Plesk ne doit pas exiger une installation système manuelle
+  d’un outil audio ni une configuration supplémentaire pour les vocaux.

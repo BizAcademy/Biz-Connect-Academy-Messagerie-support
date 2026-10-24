@@ -111,11 +111,17 @@ async function database() {
     console.log("Les variables du panneau Node.js ne sont pas toujours transmises aux commandes. Un fichier plesk/.env privé permet de les partager. Ne le publiez jamais sur GitHub.");
     return;
   }
-  for (const name of ["sequelize", "mysql2", "pg", "sharp"]) {
+  for (const name of ["sequelize", "mysql2", "pg", "sharp", "@ffprobe-installer/ffprobe"]) {
     try { require(name); ok("Module " + name + " chargeable."); }
     catch (e) { fail("Module " + name, e); }
   }
   if (failures) return;
+  try {
+    const probe = require("@ffprobe-installer/ffprobe").path;
+    const result = require("node:child_process").spawnSync(probe, ["-version"], { timeout: 5000, stdio: "ignore" });
+    if (result.status !== 0) throw new Error("Exécution audio impossible. Relancer deploy et vérifier les droits d’exécution de l’hébergement.");
+    ok("Vérification des vocaux disponible, sans installation système manuelle.");
+  } catch (e) { fail("Vocaux", e); }
   try { await localStartup(); }
   catch (e) { fail("Démarrage local", e); }
   if (!process.argv.includes("--skip-db")) {
