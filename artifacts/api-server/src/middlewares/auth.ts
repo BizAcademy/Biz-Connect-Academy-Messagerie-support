@@ -8,6 +8,9 @@ import { publicAccount, type Identity } from "../services/accounts";
 
 declare global { namespace Express { interface Request { identity?: Identity } } }
 const cookieOptions = { httpOnly: true, secure: production, sameSite: "lax" as const, path: "/" };
+// Browsers cap persistent cookies at 400 days. Renew on visits and refreshes,
+// rather than imposing the former fixed 30-day sign-in deadline.
+export const sessionMaxAge = 400 * 86400000;
 const csrfSign = (s: string) => createHmac("sha256", jwtKey).update(s).digest("hex");
 const equal = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 export function csrfToken(req: Request, res: Response) {
@@ -16,8 +19,8 @@ export function csrfToken(req: Request, res: Response) {
   if (!nonce || !signature || !equal(signature, csrfSign(nonce))) {
     const nonce = randomBytes(24).toString("hex");
     token = `${nonce}.${csrfSign(nonce)}`;
-    res.cookie("bc_csrf", token, { ...cookieOptions, maxAge: 30 * 86400000 });
   }
+  res.cookie("bc_csrf", token, { ...cookieOptions, maxAge: sessionMaxAge });
   return token!;
 }
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {
@@ -48,10 +51,10 @@ export async function newSession(res: Response, identity: Identity) {
   const refresh = randomBytes(48).toString("hex");
   const session = await SessionRecord.create({
     id: crypto.randomUUID(), accountId: identity.id, role: identity.role,
-    refreshHash: hashToken(refresh), expiresAt: new Date(Date.now() + 30 * 86400000),
+    refreshHash: hashToken(refresh), expiresAt: new Date(Date.now() + sessionMaxAge),
   });
   accessCookie(res, identity, session.get("id") as string);
-  res.cookie("bc_refresh", refresh, { ...cookieOptions, maxAge: 30 * 86400000 });
+  res.cookie("bc_refresh", refresh, { ...cookieOptions, maxAge: sessionMaxAge });
 }
 export async function renewSession(req: Request, res: Response, rotate: boolean): Promise<Identity | null> {
   const token = req.cookies?.bc_refresh;
@@ -60,20 +63,16 @@ export async function renewSession(req: Request, res: Response, rotate: boolean)
   if (!record) return null;
   const identity: Identity = { id: record.get("accountId") as string, role: record.get("role") as Identity["role"] };
   if (!await publicAccount(identity)) return null;
-  if (rotate) {
-    // Atomic consumption prevents a refresh token being replayed concurrently.
-    const nextToken = randomBytes(48).toString("hex");
-    const [count] = await SessionRecord.update({
-      refreshHash: hashToken(nextToken), expiresAt: new Date(Date.now() + 30 * 86400000),
-    }, { where: { id: record.get("id"), refreshHash: hashToken(token) } });
-    if (!count) return null;
-    accessCookie(res, identity, record.get("id") as string);
-    res.cookie("bc_refresh", nextToken, { ...cookieOptions, maxAge: 30 * 86400000 });
-    identity.sessionId = record.get("id") as string;
-  } else {
-    accessCookie(res, identity, record.get("id") as string);
-    identity.sessionId = record.get("id") as string;
-  }
+  // Conditional update cannot resurrect a session removed by logout. Refresh
+  // rotation still atomically consumes the previous token, including on races.
+  const nextToken = rotate ? randomBytes(48).toString("hex") : token;
+  const [count] = await SessionRecord.update({
+    refreshHash: hashToken(nextToken), expiresAt: new Date(Date.now() + sessionMaxAge),
+  }, { where: { id: record.get("id"), refreshHash: hashToken(token), expiresAt: { [Op.gt]: new Date() } } });
+  if (!count) return null;
+  accessCookie(res, identity, record.get("id") as string);
+  res.cookie("bc_refresh", nextToken, { ...cookieOptions, maxAge: sessionMaxAge });
+  identity.sessionId = record.get("id") as string;
   return identity;
 }
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {

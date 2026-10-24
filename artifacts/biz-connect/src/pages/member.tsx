@@ -3,7 +3,7 @@ import { getListConversationsQueryKey, useListConversations, type Account } from
 import { useRealtime } from "@/components/realtime";
 import { ChatView } from "@/components/chat/chat-view";
 import { UserAvatar } from "@/components/chat/media";
-import { ConnectionPill, InstallBanner } from "@/components/app-effects";
+import { ConnectionPill } from "@/components/app-effects";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function MemberChat({ account, onOpenSettings }: { account: Account; onOpenSettings: () => void }) {
@@ -29,8 +29,7 @@ export function MemberChat({ account, onOpenSettings }: { account: Account; onOp
   );
 
   return (
-    <div className="flex h-[100dvh] flex-col">
-      <InstallBanner />
+    <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1">
         {conv ? (
           <ChatView

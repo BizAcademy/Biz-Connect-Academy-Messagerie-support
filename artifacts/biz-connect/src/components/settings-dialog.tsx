@@ -18,7 +18,8 @@ import { Switch } from "@/components/ui/switch";
 import { UserAvatar } from "@/components/chat/media";
 import { useTheme } from "@/hooks/use-app";
 import { useToast } from "@/hooks/use-toast";
-import { cropAvatar, urlBase64ToUint8Array } from "@/lib/chat-utils";
+import { cropAvatar } from "@/lib/chat-utils";
+import { browserPushSubscription } from "@/lib/browser-push";
 import { errorMessage } from "@/lib/api-fetch";
 import { cn } from "@/lib/utils";
 
@@ -97,13 +98,8 @@ export function SettingsDialog({ open, onOpenChange, account }: { open: boolean;
         toast({ title: "Notifications refusées", description: "Vous pouvez les autoriser depuis les réglages du navigateur." });
         return;
       }
-      const reg = await navigator.serviceWorker.ready;
-      const sub =
-        (await reg.pushManager.getSubscription()) ??
-        (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(push.data.publicKey) }));
-      const json = sub.toJSON();
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new Error("subscription");
-      await subscribe.mutateAsync({ data: { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } } });
+      const data = await browserPushSubscription(push.data.publicKey);
+      await subscribe.mutateAsync({ data });
       toast({ title: "Notifications activées", description: "Vous serez prévenu des nouveaux messages." });
     } catch (e) {
       toast({ title: "Activation impossible", description: errorMessage(e, "L'abonnement aux notifications a échoué."), variant: "destructive" });
@@ -114,11 +110,12 @@ export function SettingsDialog({ open, onOpenChange, account }: { open: boolean;
 
   const doLogout = () =>
     logout.mutate(undefined, {
-      onSettled: () => {
+      onSuccess: () => {
         qc.clear();
         onOpenChange(false);
         navigate("/login");
       },
+      onError: (e) => toast({ title: "La session n’a pas pu être fermée", description: errorMessage(e, "Vérifiez votre réseau puis réessayez."), variant: "destructive" }),
     });
 
   const busyAvatar = upload.isPending || updateProfile.isPending;

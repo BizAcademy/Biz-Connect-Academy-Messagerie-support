@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { useRealtime } from "@/components/realtime";
 import { ChatView } from "@/components/chat/chat-view";
 import { UserAvatar } from "@/components/chat/media";
-import { ConnectionPill, InstallBanner } from "@/components/app-effects";
+import { ConnectionPill } from "@/components/app-effects";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const FILTERS: { key: ListConversationsFilter; label: string; count: "total" | "unread" | "read" | "favorites" }[] = [
@@ -132,8 +132,7 @@ export function AdminInbox({ account, onOpenSettings }: { account: Account; onOp
   }, []);
 
   return (
-    <div className="flex h-[100dvh] flex-col">
-      <InstallBanner />
+    <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
         <aside className={cn("flex w-full min-w-0 flex-col border-r bg-sidebar md:w-[380px] md:shrink-0", selected && "hidden md:flex")}>
           <header className="px-4 pb-2 pt-4" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}>

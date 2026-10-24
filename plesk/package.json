@@ -12,6 +12,7 @@
     "deploy": "node deploy.cjs",
     "diagnose": "node diagnose.cjs",
     "db:init": "node init-db.cjs",
+    "db:upgrade": "node upgrade-db.cjs",
     "admin:create": "node admin.cjs",
     "member:create": "node member.cjs"
   },

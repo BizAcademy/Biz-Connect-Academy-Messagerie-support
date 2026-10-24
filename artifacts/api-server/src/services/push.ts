@@ -1,6 +1,7 @@
 import webPush from "web-push";
 import { createECDH, createHash } from "node:crypto";
-import { PushSubscription } from "@workspace/db";
+import { PushSubscription, SessionRecord } from "@workspace/db";
+import { Op } from "sequelize";
 import { jwtKey, appOrigin, production } from "../lib/config";
 import type { Identity } from "./accounts";
 import { logger } from "../lib/logger";
@@ -25,8 +26,17 @@ export function validPushEndpoint(endpoint: string) {
 export async function sendMessagePush(identity: Identity, userId: string, message: any) {
   if (!pushEnabled) return;
   const subscriptions = await PushSubscription.findAll({ where: identity.role === "member" ? { role: "admin" } : { accountId: userId, role: "member" } });
+  if (!subscriptions.length) return;
+  const ids = subscriptions.map((row) => row.get("sessionId")).filter((id) => typeof id === "string" && id.length > 0);
+  if (!ids.length) return;
+  const sessions = await SessionRecord.findAll({ where: {
+    id: { [Op.in]: ids },
+    expiresAt: { [Op.gt]: new Date() },
+  } });
+  const active = new Set(sessions.map((row) => `${row.get("id")}:${row.get("accountId")}:${row.get("role")}`));
   await Promise.all(subscriptions.map(async (row) => {
     const sub = row.get();
+    if (!active.has(`${sub.sessionId}:${sub.accountId}:${sub.role}`)) return;
     if (!validPushEndpoint(sub.endpoint)) return;
     try {
       await webPush.sendNotification({

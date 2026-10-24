@@ -6,14 +6,21 @@ développement existant). PWA installable avec Web Push, images et vocaux privé
 
 ## Ce qui est livré
 
-- Connexion membre avec nom d’utilisateur et numéro Biz Connect ; vérification
-  isolée dans `artifacts/api-server/src/services/accounts.ts`.
+- Connexion membre avec nom d’utilisateur et téléphone : création automatique
+  du compte et de son unique conversation support lors de la première saisie.
 - Connexion commune sans sélecteur Équipe : le serveur reconnaît les administrateurs
   enregistrés dans la table `admins`. Un rôle envoyé par le navigateur ne donne
   aucun privilège. Les administrateurs utilisent leur mot de passe, les membres
-  leur numéro Biz Connect Academy.
+  leur numéro de téléphone. Le couple nom + téléphone retrouve son historique ;
+  toute autre combinaison ouvre un échange indépendant, y compris un autre
+  téléphone pour le même nom. Aucun ancien compte ou message n’est remplacé.
 - Comptes administrateur protégés par bcrypt, accès JWT 15 minutes et jeton de
-  renouvellement opaque rotatif 30 jours ; cookies httpOnly, Secure en production.
+  renouvellement opaque rotatif ; cookies httpOnly, Secure en production.
+  Connexion conservée après fermeture du navigateur, durée glissante de 400 jours
+  (limite des cookies navigateur), renouvelée aux visites et toutes les 10 minutes
+  lorsque l’application est ouverte. Déconnexion : session révoquée en base.
+  Effacer les cookies, changer d’appareil ou rester absent plus de 400 jours impose
+  une nouvelle connexion ; aucune application web ne peut restaurer un cookie effacé.
 - Conversation unique côté membre, boîte multi-agents côté support, recherche,
   favoris, filtres, non-lus, présence, saisie en cours et coches envoyé/reçu/lu.
 - Images compressées et réencodées, visionneuse interne, téléchargement contrôlé,
@@ -23,14 +30,50 @@ développement existant). PWA installable avec Web Push, images et vocaux privé
   validation des signatures de fichiers, images ≤ 5 Mo, vocaux ≤ 5 minutes.
 - Manifest, service worker, aide d’installation iOS, notifications, badge et titre.
 
-**Ce n’est pas une connexion déjà branchée à la vraie plateforme Academy.**
-Les identifiants des membres doivent être provisionnés, ou le vérificateur doit
-être raccordé à votre API officielle. Aucun compte réel n’est accepté par défaut.
-Le numéro Academy est traité comme un secret et stocké haché ; s’il est public
-ou facile à deviner, la plateforme doit fournir une vérification complémentaire
-(OTP ou authentification API) avant une ouverture à de vrais utilisateurs.
+**L’inscription membre est ouverte, conformément au choix du propriétaire.**
+Ce n’est pas une vérification d’appartenance à Academy ni de propriété du téléphone.
+Le téléphone normalisé est stocké dans le profil et son empreinte bcrypt sert à
+  conserver la compatibilité avec les anciens comptes. Le couple nom et téléphone
+  du profil identifie les sessions suivantes. Sans SMS ni mot de passe membre, connaître le
+nom et le téléphone peut permettre d’accéder aux échanges : ce risque a été
+expliqué avant confirmation de l’inscription automatique. Les comptes support
+restent précréés avec un mot de passe ; aucun rôle admin n’est fourni par le client.
 
 ## Prérequis
+
+### Mise à jour : sessions de chat par nom et téléphone
+
+Sur une **base Plesk déjà utilisée**, après le pull GitHub et **Deploy Now**,
+lancer une seule fois **Node.js → Run script → `db:upgrade`**, puis **Restart App**.
+Ne pas relancer `db:init` et ne pas réimporter le schéma initial.
+Cette commande remplace l’unicité du nom membre par celle du couple
+`(username, phone)`. Elle ajoute d’abord le nouvel index, puis retire uniquement
+l’ancien index du nom ; elle ne supprime ni ne réécrit les comptes, conversations
+ou messages, et ne modifie pas les administrateurs. Elle est relançable en cas
+d’interruption. Conserver une sauvegarde avant toute évolution de schéma.
+Des droits ALTER/INDEX sont nécessaires ; aucun build sur Plesk n’est requis.
+Une base neuve initialisée avec cette distribution utilise déjà le nouvel index.
+
+### Installation et notifications téléphone
+
+La notice d’installation s’affiche dès l’entrée, avant toute session, et propose
+soit le dialogue d’installation disponible, soit les instructions du navigateur.
+Elle peut être fermée pour utiliser le site normalement et n’apparaît pas dans
+l’application ouverte en mode autonome. Un simple refus d’installation n’est
+jamais enregistré comme une installation réussie.
+
+Après ouverture d’une session, une notice propose les notifications. L’autorisation
+est demandée uniquement après une action de l’utilisateur. Si elle est déjà accordée,
+l’abonnement est automatiquement enregistré pour la session courante ; les abonnements
+de sessions fermées/expirées ne reçoivent pas de push. Les clés VAPID stables existantes
+sont dérivées de SESSION_SECRET, le contact de APP_ORIGIN : aucune nouvelle clé n’est
+requise dans la configuration Plesk existante. HTTPS reste obligatoire.
+
+Sur iPhone/iPad, utiliser Safari, ajouter l’application à l’écran d’accueil puis
+ouvrir cette application pour autoriser les notifications (iOS/iPadOS 16.4+).
+Sur Android, utiliser un navigateur compatible et autoriser les notifications.
+Le système peut les bloquer ou les retarder (permissions, économie de batterie,
+réseau, mode silencieux) : leur affichage physique n’est pas garanti par le site.
 
 - Node.js **22 LTS ou plus récent**, npm, accès réseau à npm pour l’installation.
 - MySQL 8 / MariaDB 10.6+ pour Cybrancee ; PostgreSQL également pris en charge.
@@ -117,14 +160,16 @@ node plesk/deploy.cjs
 npm start
 ```
 
-Pour provisionner un membre local, configurer temporairement `MEMBER_USERNAME`,
+La première connexion crée automatiquement le membre. Pour un provisionnement
+manuel facultatif, configurer temporairement `MEMBER_USERNAME`,
 `MEMBER_NUMBER` (confidentiel) et éventuellement `MEMBER_PHONE`, puis :
 
 ```sh
 npx pnpm --filter @workspace/api-server run member:create
 ```
 
-Le script crée le membre et sa conversation sans publier son numéro Academy.
+Le script crée le membre et sa conversation. Le téléphone du profil est visible
+par le membre concerné et par le support, pas par les autres membres.
 Répéter le seed admin avec un autre nom permet d’ajouter un agent support.
 Il ne modifie pas le mot de passe d’un agent existant.
 
@@ -211,7 +256,9 @@ Passenger, au démarrage ou dans l'action « Deploy Now ».
    variables. La commande doit recevoir les mêmes variables d'environnement que
    l'application ; le terminal ne reprend pas nécessairement les variables du
    panneau Node.js. Alternative : `node admin.cjs` dans `plesk/` avec un `.env`
-   privé. Pour un membre : `node plesk/member.cjs`, avec `MEMBER_USERNAME`,
+   privé. Les membres se créent maintenant à leur première connexion :
+   aucun script ni nouvelle variable n’est requis. Le provisionnement manuel
+   reste facultatif via `node plesk/member.cjs`, avec `MEMBER_USERNAME`,
    `MEMBER_NUMBER` et éventuellement `MEMBER_PHONE`. Aucun outil de build requis.
 8. **Vocaux et réseau** : installer FFprobe via le mécanisme autorisé par l'offre,
    renseigner `FFPROBE_PATH` si nécessaire. Sans lui, les vocaux sont refusés.

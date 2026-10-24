@@ -27,7 +27,9 @@ const identity = () => ({
 function model(name: string, tableName: string, attributes: Parameters<typeof sequelize.define>[1]) {
   return sequelize.define<Model<any, any>>(name, attributes, { tableName });
 }
-export const User = model("User", "users", identity());
+export const User = sequelize.define<Model<any, any>>("User", {
+  ...identity(), username: { type: D.TEXT, allowNull: false },
+}, { tableName: "users", indexes: [{ name: "bca_member_pair_unique", unique: true, fields: ["username", "phone"] }] });
 export const Admin = model("Admin", "admins", identity());
 export const SessionRecord = model("SessionRecord", "sessions", {
   id: id(), accountId: { type: D.UUID, field: "account_id" }, role: D.TEXT,

@@ -5,7 +5,10 @@ import { onSessionRehydrate, setCsrfToken } from "@/lib/api-fetch";
 
 export function useSession() {
   const qc = useQueryClient();
-  const q = useGetSession({ query: { queryKey: getGetSessionQueryKey(), staleTime: 60_000, retry: 1 } });
+  const q = useGetSession({ query: {
+    queryKey: getGetSessionQueryKey(), staleTime: 60_000, retry: 1,
+    refetchInterval: 10 * 60_000,
+  } });
   useEffect(() => {
     setCsrfToken(q.data?.csrfToken);
   }, [q.data?.csrfToken]);

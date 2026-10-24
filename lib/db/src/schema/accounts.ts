@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, unique } from "drizzle-orm/pg-core";
 
 const identity = () => ({
   id: uuid("id").primaryKey(),
@@ -9,7 +9,9 @@ const identity = () => ({
   isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
-export const usersTable = pgTable("users", identity());
+export const usersTable = pgTable("users", {
+  ...identity(), username: text("username").notNull(),
+}, (t) => [unique("bca_member_pair_unique").on(t.username, t.phone)]);
 export const adminsTable = pgTable("admins", identity());
 export const sessionsTable = pgTable("sessions", {
   id: uuid("id").primaryKey(),

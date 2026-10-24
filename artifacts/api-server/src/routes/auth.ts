@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { Admin, User, SessionRecord, PushSubscription } from "@workspace/db";
 import { LoginBody, DemoLoginBody } from "@workspace/api-zod";
 import { demoAvailable, hashToken } from "../lib/config";
-import { verifyAcademyMember } from "../services/accounts";
+import { loginOrCreateMember, normalizePhone } from "../services/accounts";
 import { verifyAccess, renewSession, newSession, sessionPayload, clearSessionCookies } from "../middlewares/auth";
 import { disconnectSession } from "../services/realtime";
 
@@ -13,23 +13,35 @@ const limiter = rateLimit({ windowMs: 15 * 60000, limit: 15, standardHeaders: tr
   message: { error: "Trop de tentatives. Réessayez dans 15 minutes." } });
 router.get("/auth/session", async (req, res) => {
   res.set("Cache-Control", "no-store");
-  const identity = await verifyAccess(req.cookies?.bc_access) || await renewSession(req, res, false);
+  // Renew the persistent cookie even while the 15-minute access token is valid.
+  const identity = await renewSession(req, res, false) || await verifyAccess(req.cookies?.bc_access);
   res.json(await sessionPayload(req, res, identity));
 });
 router.post("/auth/login", limiter, async (req, res) => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Veuillez renseigner vos identifiants." }); return; }
   const { username, credential } = parsed.data;
+  if (!username.trim()) { res.status(400).json({ error: "Veuillez renseigner votre nom d’utilisateur." }); return; }
   // Privileges come exclusively from the database, never a role sent by a client.
   const admin = await Admin.findOne({ where: { username: username.trim() } });
+  if (!admin && !normalizePhone(credential)) {
+    res.status(400).json({ error: "Renseignez un numéro de téléphone valide, avec 7 à 15 chiffres." }); return;
+  }
   const role = admin ? "admin" as const : "member" as const;
-  const user = admin || await verifyAcademyMember(username.trim(), credential);
+  let user;
+  try { user = admin || await loginOrCreateMember(username.trim(), credential); }
+  catch (error) {
+    if ((error as Error).name === "SequelizeUniqueConstraintError") {
+      res.status(503).json({ error: "Mise à jour des sessions requise : lancez db:upgrade dans Plesk. Aucun historique n’a été supprimé." }); return;
+    }
+    throw error;
+  }
   const valid = user && (role === "member" || await bcrypt.compare(credential, user.get("credentialHash") as string));
   if (!valid) {
     // Equalize missing-username attempts without recording personal identifiers.
     if (!user) await bcrypt.hash(credential, 12);
     req.log.warn({ role }, "Login failed");
-    res.status(401).json({ error: "Identifiants incorrects. Vérifiez vos informations Biz Connect Academy." }); return;
+    res.status(401).json({ error: "Nom ou numéro incorrect. Pour le support, vérifiez votre mot de passe administrateur." }); return;
   }
   const identity = { id: user!.get("id") as string, role };
   await newSession(res, identity);

@@ -46,6 +46,7 @@ try {
   const require = createRequire(path.join(app, "package.json"));
   const { testInit } = await import("./test-db-init.mjs");
   await testInit(require("./init-db.cjs").initializeDatabase);
+  await import("./test-db-upgrade.mjs");
   for (const name of ["sequelize", "mysql2", "pg", "sharp"]) {
     assert(require.resolve(name).startsWith(path.join(app, "node_modules")), "Must not depend on workspace node_modules");
   }

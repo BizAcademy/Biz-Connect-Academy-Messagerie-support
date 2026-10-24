@@ -207,11 +207,12 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "users_username_unique": {
-          "name": "users_username_unique",
+        "bca_member_pair_unique": {
+          "name": "bca_member_pair_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "username"
+            "username",
+            "phone"
           ]
         }
       },

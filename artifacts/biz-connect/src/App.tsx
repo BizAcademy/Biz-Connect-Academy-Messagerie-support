@@ -11,7 +11,8 @@ import LoginPage from '@/pages/login';
 import { AdminInbox } from '@/pages/inbox';
 import { MemberChat } from '@/pages/member';
 import { RealtimeProvider } from '@/components/realtime';
-import { SummaryEffects } from '@/components/app-effects';
+import { InstallBanner, SummaryEffects } from '@/components/app-effects';
+import { NotificationPrompt } from '@/components/notification-prompt';
 import { SettingsDialog } from '@/components/settings-dialog';
 import { useSession } from '@/hooks/use-app';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,11 +53,16 @@ function Authed({ account, settings }: { account: Account; settings: boolean }) 
   return (
     <RealtimeProvider account={account}>
       <SummaryEffects />
+      <div className="flex h-[100dvh] flex-col">
+      <NotificationPrompt account={account} />
+      <div className="min-h-0 flex-1">
       {account.role === 'admin' ? (
         <AdminInbox account={account} onOpenSettings={open} />
       ) : (
         <MemberChat account={account} onOpenSettings={open} />
       )}
+      </div>
+      </div>
       <SettingsDialog open={settings} onOpenChange={(o) => !o && navigate('/')} account={account} />
     </RealtimeProvider>
   );
@@ -107,6 +113,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+          <InstallBanner />
           <Router />
         </WouterRouter>
         <Toaster />

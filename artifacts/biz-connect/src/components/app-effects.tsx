@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Share, X } from "lucide-react";
+import { Download, Share } from "lucide-react";
 import { getGetSummaryQueryKey, useGetSummary } from "@workspace/api-client-react";
 import { playNotificationSound } from "@/lib/chat-utils";
 import { useRealtime } from "@/components/realtime";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { isInstalled, isIos } from "@/lib/browser-push";
 
 type BIPEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 let deferred: BIPEvent | null = null;
@@ -14,9 +16,9 @@ if (typeof window !== "undefined") {
     bipListeners.forEach((l) => l());
   });
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
-    });
+    const register = () => { navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => undefined); };
+    if (document.readyState === "complete") register();
+    else window.addEventListener("load", register, { once: true });
   }
 }
 
@@ -48,55 +50,49 @@ export function SummaryEffects() {
 
 export function InstallBanner() {
   const [canPrompt, setCanPrompt] = useState(!!deferred);
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem("bca-install-dismissed") === "1");
+  const [dismissed, setDismissed] = useState(false);
+  const [installed, setInstalled] = useState(() => isInstalled() || localStorage.getItem("bca-pwa-installed") === "1");
   useEffect(() => {
     const l = () => setCanPrompt(true);
+    const done = () => { localStorage.setItem("bca-pwa-installed", "1"); setInstalled(true); deferred = null; };
     bipListeners.add(l);
+    window.addEventListener("appinstalled", done);
     return () => {
       bipListeners.delete(l);
+      window.removeEventListener("appinstalled", done);
     };
   }, []);
-  const standalone =
-    window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone;
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
-  if (dismissed || standalone || (!canPrompt && !ios)) return null;
+  const ios = isIos();
+  if (dismissed || installed) return null;
   const close = () => {
-    localStorage.setItem("bca-install-dismissed", "1");
     setDismissed(true);
   };
   const install = async () => {
     if (!deferred) return;
-    await deferred.prompt();
-    await deferred.userChoice.catch(() => undefined);
-    deferred = null;
-    setCanPrompt(false);
-    close();
+    try {
+      await deferred.prompt();
+      await deferred.userChoice;
+      deferred = null;
+      setCanPrompt(false);
+      close();
+    } catch { deferred = null; setCanPrompt(false); }
   };
   return (
-    <div className="flex items-center gap-3 border-b border-[#D4AF37]/30 bg-[#0B1B3F] px-4 py-2.5 text-white animate-in slide-in-from-top-2" data-testid="banner-install">
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gold font-display text-[#0B1B3F]">B</div>
-      <div className="min-w-0 flex-1 text-xs leading-snug">
-        {canPrompt ? (
-          <>
-            <span className="font-semibold">Installer l'application</span>
-            <span className="text-white/60"> · accès direct, comme une vraie messagerie</span>
-          </>
-        ) : (
-          <>
-            Sur iPhone : touchez <Share className="mx-0.5 inline h-3.5 w-3.5 -translate-y-px" /> Partager, puis{" "}
-            <span className="font-semibold">Sur l'écran d'accueil</span>.
-          </>
-        )}
-      </div>
-      {canPrompt && (
-        <button onClick={install} className="inline-flex items-center gap-1 rounded-full bg-gold px-3 py-1 text-xs font-bold text-[#0B1B3F]" data-testid="button-install">
-          <Download className="h-3.5 w-3.5" /> Installer
-        </button>
-      )}
-      <button onClick={close} className="rounded-full p-1 text-white/60 hover:text-white" aria-label="Masquer" data-testid="button-dismiss-install">
-        <X className="h-4 w-4" />
-      </button>
-    </div>
+    <Dialog open onOpenChange={(open) => { if (!open) close(); }}>
+      <DialogContent className="max-w-sm rounded-3xl p-6" data-testid="banner-install">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary"><Download className="h-6 w-6" /></div>
+        <DialogHeader className="text-left">
+          <DialogTitle>Installez BCA Messenger</DialogTitle>
+          <DialogDescription>Retrouvez votre chat sur l’écran d’accueil et recevez les notifications de nouveaux messages après les avoir autorisées.</DialogDescription>
+        </DialogHeader>
+        {!canPrompt && <p className="text-sm leading-relaxed text-muted-foreground">
+          {ios ? <><Share className="mr-1 inline h-4 w-4" />Sur iPhone ou iPad, ouvrez ce site dans Safari, touchez Partager puis « Sur l’écran d’accueil ».</>
+            : <>Ouvrez le menu de votre navigateur puis « Installer l’application » ou « Ajouter à l’écran d’accueil ». Si cette option n’est pas proposée, utilisez un navigateur compatible.</>}
+        </p>}
+        {canPrompt && <button onClick={() => void install()} className="rounded-full bg-primary px-4 py-3 font-semibold text-primary-foreground" data-testid="button-install">Installer l’application</button>}
+        <button onClick={close} className="rounded-full border px-4 py-3 text-sm font-medium" data-testid="button-dismiss-install">Continuer dans le navigateur</button>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -25,11 +25,18 @@ Messagerie privée française pour les membres de l’académie et les agents su
   ignorés ; les dépendances natives sont installées sur l'hôte, jamais commitées.
 - Aucune migration externe automatique, aucun secret ni fichier privé dans Git.
 
-- Authentification personnalisée explicitement demandée : numéro Academy haché
-  pour les membres, mot de passe bcrypt pour les admins, JWT httpOnly + refresh
-  rotatif en base. Ne pas remplacer par un autre fournisseur sans accord.
-- L’API réelle Academy n’a pas été fournie. Son vérificateur est isolé ; pas de
-  validation permissive de comptes arbitraires.
+- Sessions de chat par nom et téléphone, avec création technique automatique
+  d’une identité membre si le couple est nouveau, explicitement demandée par
+  l’utilisateur sans parcours d’inscription/connexion. Téléphone normalisé ;
+  empreinte bcrypt conservée pour les anciens comptes sans téléphone de profil.
+  Aucune vérification SMS ni intégration Academy.
+  Le couple nom + téléphone identifie un échange : même couple = ancien historique,
+  autre couple (même nom compris) = nouvelle identité et nouvelle conversation.
+  Ne jamais réinitialiser ou écraser un membre existant avec un autre numéro.
+  Le risque d’accès par un tiers connaissant le nom et le téléphone a été expliqué.
+  Mot de passe bcrypt obligatoire pour les comptes admins désignés dans la base,
+  sans création automatique ni repli en mode membre pour leur nom réservé.
+  JWT httpOnly + refresh rotatif en base ; ne pas changer de fournisseur sans accord.
 - Sequelize à l’exécution, schéma Drizzle aligné pour l’intégration des migrations
   Replit. Aucun DDL ni seed automatique au démarrage.
 - Stockage disque privé explicitement demandé pour l’hébergement Plesk. AES-GCM
@@ -48,6 +55,12 @@ Messagerie privée française pour les membres de l’académie et les agents su
 - Session membre persistante : après saisie du nom d’utilisateur et du numéro de
   téléphone, revenir directement au chat sans ressaisie jusqu’à une déconnexion
   explicite, comme demandé par l’utilisateur.
+- L’écran d’entrée est un formulaire « ouvrir une session de chat », pas une page
+  d’inscription/connexion, avec le texte Biz Connect Academy fourni par l’utilisateur.
+  Référence visuelle demandée : écran mobile sombre de messagerie.
+- Proposer l’installation PWA dès la visite si l’application n’est pas installée ;
+  proposer l’activation des notifications téléphone après ouverture de session.
+  Ne jamais prétendre pouvoir contourner les permissions du navigateur ou d’iOS.
 
 - Interface française, style Telegram ; bulles sortantes bleues #1E5EFF,
   entrantes vertes #16A34A ; or #D4AF37 pour accents et non-lus.

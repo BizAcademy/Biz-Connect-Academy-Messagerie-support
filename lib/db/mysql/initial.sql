@@ -6,12 +6,13 @@ SET time_zone = '+00:00';
 
 CREATE TABLE users (
   id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
-  username VARCHAR(191) NOT NULL UNIQUE,
+  username VARCHAR(191) NOT NULL,
   credential_hash TEXT NOT NULL,
   phone VARCHAR(64) NOT NULL DEFAULT '',
   avatar_file_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin,
   is_demo BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  CONSTRAINT bca_member_pair_unique UNIQUE (username, phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 CREATE TABLE admins (

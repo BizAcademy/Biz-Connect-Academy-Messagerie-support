@@ -19,7 +19,7 @@ const sourceInputs = [
   "lib/db/src", "lib/db/drizzle", "lib/db/mysql", "lib/db/package.json", "lib/api-zod/src", "lib/api-client-react/src",
   "lib/api-spec/openapi.yaml", "scripts/build-standalone.mjs", "scripts/build-plesk.mjs",
   "plesk/app.cjs", "plesk/environment.cjs", "plesk/verify.cjs", "plesk/deploy.cjs", "plesk/deploy.sh",
-  "plesk/admin.cjs", "plesk/member.cjs", "plesk/diagnose.cjs", "plesk/init-db.cjs", "plesk/startup-report.cjs",
+  "plesk/admin.cjs", "plesk/member.cjs", "plesk/diagnose.cjs", "plesk/init-db.cjs", "plesk/upgrade-db.cjs", "plesk/startup-report.cjs",
 ];
 function sourceDigest(repoRoot = path.dirname(root)) {
   const hash = crypto.createHash("sha256");
@@ -39,7 +39,7 @@ function releaseFiles() {
     ...filesUnder(path.join(root, "server")), ...filesUnder(path.join(root, "public")),
     ...filesUnder(path.join(root, "schema")),
     ...["package.json", "package-lock.json", "app.cjs", "environment.cjs", "verify.cjs",
-      "deploy.cjs", "deploy.sh", "admin.cjs", "member.cjs", "diagnose.cjs", "init-db.cjs", "startup-report.cjs"].map((f) => path.join(root, f)),
+      "deploy.cjs", "deploy.sh", "admin.cjs", "member.cjs", "diagnose.cjs", "init-db.cjs", "upgrade-db.cjs", "startup-report.cjs"].map((f) => path.join(root, f)),
   ].map((file) => path.relative(root, file).split(path.sep).join("/")).sort();
 }
 function verifyRelease(options = {}) {
@@ -52,7 +52,7 @@ function verifyRelease(options = {}) {
       throw new Error(`Version précompilée incomplète ou modifiée : ${name}. Relancer build:plesk avant le push.`);
     }
   }
-  for (const required of ["server/index.mjs", "server/admin.mjs", "server/member.mjs", "public/index.html", "schema/initial.sql", "schema/initial-mysql.sql", "init-db.cjs", "package-lock.json"]) {
+  for (const required of ["server/index.mjs", "server/admin.mjs", "server/member.mjs", "public/index.html", "schema/initial.sql", "schema/initial-mysql.sql", "init-db.cjs", "upgrade-db.cjs", "package-lock.json"]) {
     if (!release.files[required]) throw new Error(`Fichier absent du manifeste : ${required}`);
   }
   if (options.sources && sourceDigest() !== release.sourceHash) throw new Error("Les sources ont changé depuis le build. Exécuter npm run build:plesk avant le push GitHub.");

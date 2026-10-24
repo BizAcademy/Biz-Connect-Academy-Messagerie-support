@@ -32,7 +32,7 @@ CREATE TABLE "users" (
 	"avatar_file_id" uuid,
 	"is_demo" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "users_username_unique" UNIQUE("username")
+CONSTRAINT "bca_member_pair_unique" UNIQUE("username","phone")
 );
 --> statement-breakpoint
 CREATE TABLE "conversations" (
