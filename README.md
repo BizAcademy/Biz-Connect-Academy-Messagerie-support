@@ -132,7 +132,10 @@ effacer les messages. Elle peut être relancée. Ne pas réimporter le schéma i
 La migration n’est jamais exécutée implicitement au démarrage.
 
 Le fil charge 100 messages récents et permet de charger les pages précédentes.
-Glisser un message vers la gauche prépare une réponse citée ; l’appui long (ou
+Glisser un message envoyé ou reçu vers la gauche ou la droite le déplace avec
+le doigt et prépare une réponse citée au relâchement après 60 px. Un geste
+plus court revient en place sans répondre ; le défilement vertical reste libre.
+L’appui long (ou
 le menu du message sur ordinateur) permet de répondre ou de supprimer.
 À la demande du propriétaire, **tout participant autorisé de la conversation**
 peut retirer un message reçu ou envoyé pour tout le monde, après confirmation.

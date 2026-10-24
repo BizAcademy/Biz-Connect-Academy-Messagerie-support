@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { errorMessage } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { mapRealtimeMessages } from "@/lib/realtime-cache";
+import { useMessageGesture } from "./use-message-gesture";
 
 function Ticks({ status }: { status: Message["status"] }) {
   if (status === "sent") return <Check aria-label="Envoyé, pas encore reçu" className="h-3.5 w-3.5 text-white" data-testid="status-sent" />;
@@ -28,9 +29,6 @@ function Ticks({ status }: { status: Message["status"] }) {
     />
   );
 }
-
-const SWIPE_TRIGGER = 60;
-const SWIPE_MAX = 84;
 
 async function copyText(text: string) {
   try {
@@ -74,33 +72,7 @@ function Bubble({
   onMenu: () => void;
   onQuote: (id: string) => void;
 }) {
-  const gesture = useRef<{ id: number; x: number; y: number; dx: number; axis: "x" | "y" | null } | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const row = useRef<HTMLDivElement>(null);
-  const hint = useRef<HTMLSpanElement>(null);
-  const suppressClick = useRef(false);
-  const paint = (dx: number, animate: boolean) => {
-      const el = row.current;
-      if (!el) return;
-      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      el.style.animation = "none";
-      el.style.transition = animate && !reduce ? "transform 220ms cubic-bezier(.2,.8,.2,1)" : "none";
-      el.style.transform = dx ? `translate3d(${dx}px,0,0)` : "";
-      if (hint.current) hint.current.style.opacity = String(Math.min(1, -dx / SWIPE_TRIGGER));
-  };
-  const finish = (commit: boolean) => {
-    clearTimeout(timer.current);
-    const g = gesture.current;
-    gesture.current = null;
-    if (!g) return;
-    if (commit && g.axis === "x" && g.dx <= -SWIPE_TRIGGER) {
-      suppressClick.current = true;
-      onReply();
-      navigator.vibrate?.(10);
-    }
-    if (g.axis === "x") paint(0, true);
-  };
-  useEffect(() => () => { clearTimeout(timer.current); }, []);
+  const { row, hint, onClickCapture, onContextMenu } = useMessageGesture(onReply, onMenu);
   const meta = (
     <span className="ml-2 inline-flex translate-y-1 items-center gap-1 whitespace-nowrap align-bottom text-[10.5px] font-medium text-white/75">
       {formatTime(m.createdAt)}
@@ -120,34 +92,8 @@ function Bubble({
         tail ? "mb-2" : "mb-0.5",
         highlight && "bg-[#D4AF37]/25 duration-200",
       )}
-      onPointerDown={(e) => {
-        if (e.button !== 0 || (e.target as HTMLElement).closest("audio,input,textarea,[data-message-menu],[data-testid='audio-player']")) return;
-        suppressClick.current = false;
-        gesture.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, axis: null };
-        timer.current = setTimeout(() => { suppressClick.current = true; finish(false); onMenu(); navigator.vibrate?.(8); }, 550);
-      }}
-      onPointerMove={(e) => {
-        const g = gesture.current;
-        if (!g || g.id !== e.pointerId) return;
-        const dx = e.clientX - g.x;
-        const dy = e.clientY - g.y;
-        if (!g.axis) {
-          if (Math.hypot(dx, dy) < 8) return;
-          clearTimeout(timer.current);
-          g.axis = Math.abs(dx) > Math.abs(dy) && dx < 0 ? "x" : "y";
-          if (g.axis === "y") { gesture.current = null; return; } // leave vertical scroll to the browser
-          try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-        }
-        // Rubber band beyond the cap so the bubble keeps following without running away.
-        const raw = Math.min(0, dx);
-        g.dx = raw < -SWIPE_MAX ? -SWIPE_MAX - (-raw - SWIPE_MAX) * 0.2 : raw;
-        paint(g.dx, false);
-      }}
-      onPointerUp={(e) => { if (gesture.current?.id === e.pointerId) finish(true); }}
-      onPointerCancel={() => finish(false)}
-      onLostPointerCapture={(e) => { if (gesture.current?.id === e.pointerId) finish(false); }}
-      onClickCapture={(e) => { if (suppressClick.current) { e.stopPropagation(); e.preventDefault(); suppressClick.current = false; } }}
-      onContextMenu={(e) => { e.preventDefault(); finish(false); onMenu(); }}
+      onClickCapture={onClickCapture}
+      onContextMenu={onContextMenu}
       data-testid={`message-${m.id}`}>
       {!mine && (
         <div className="mr-2 mt-1 shrink-0" data-testid={`sender-avatar-${m.id}`} title={m.senderName}>

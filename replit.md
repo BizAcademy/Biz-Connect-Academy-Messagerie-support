@@ -120,6 +120,8 @@ Voir README pour sauvegardes et prérequis.
 
 ## Temps réel
 
+- Le glissement pour répondre doit fonctionner vers la gauche et vers la droite,
+  sur les messages envoyés comme reçus, avec déplacement visible suivant le doigt.
 - Entrée doit toujours ajouter une ligne, sur ordinateur comme sur mobile ;
   seul le bouton d’envoi transmet un message, y compris une légende d’image.
 - Les images du fil doivent rester compactes et les vocaux ne doivent pas
