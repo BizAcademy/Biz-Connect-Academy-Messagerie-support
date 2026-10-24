@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { useLocation } from "wouter";
 import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -51,7 +52,7 @@ export default function LoginPage({ session }: { session: Session | undefined })
         </div>
 
         <div className="rise mt-12 flex flex-col items-center text-center md:mt-0">
-          <div className="grid h-16 w-16 place-items-center rounded-full bg-[#5AA9F0] font-display text-3xl text-[#13202C]">B</div>
+          <BrandLogo className="h-20 w-20 rounded-2xl" />
           <h1 className="mt-6 text-[21px] font-semibold tracking-tight">Ouvrir votre session de chat</h1>
           <p className="mt-3 text-[14.5px] leading-relaxed text-[#8A9AAD]">
             Pour ouvrir votre session de chat et pouvoir discuter avec le support Biz Connect Academy, veuillez saisir le nom d’utilisateur et le numéro de téléphone de votre compte Biz Connect Academy.

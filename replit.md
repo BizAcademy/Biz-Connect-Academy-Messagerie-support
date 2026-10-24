@@ -25,6 +25,10 @@ Messagerie privée française pour les membres de l’académie et les agents su
   ignorés ; les dépendances natives sont installées sur l'hôte, jamais commitées.
 - Aucune migration externe automatique, aucun secret ni fichier privé dans Git.
 
+- Identité visuelle : utiliser les deux logos BCA fournis par l’utilisateur à la
+  place des marques provisoires. Le logo sur fond bleu est le logo principal de
+  l’application, y compris sur l’écran d’ouverture de session, le favicon et
+  l’icône de l’application installée. Conserver la variante colorée disponible.
 - Sessions de chat par nom et téléphone, avec création technique automatique
   d’une identité membre si le couple est nouveau, explicitement demandée par
   l’utilisateur sans parcours d’inscription/connexion. Téléphone normalisé ;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { ArrowLeft, Inbox, MessagesSquare, Phone, RotateCw, Search, Star, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -137,7 +138,7 @@ export function AdminInbox({ account, onOpenSettings }: { account: Account; onOp
         <aside className={cn("flex w-full min-w-0 flex-col border-r bg-sidebar md:w-[380px] md:shrink-0", selected && "hidden md:flex")}>
           <header className="px-4 pb-2 pt-4" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}>
             <div className="flex items-center gap-3">
-              <div className="grid h-9 w-9 place-items-center rounded-xl bg-[#0B1B3F] font-display text-lg text-[#D4AF37]">B</div>
+              <BrandLogo className="h-10 w-10 rounded-xl" />
               <div className="min-w-0 flex-1">
                 <h1 className="font-display text-xl leading-none">Boîte de réception</h1>
                 <div className="mt-1 flex items-center gap-2">

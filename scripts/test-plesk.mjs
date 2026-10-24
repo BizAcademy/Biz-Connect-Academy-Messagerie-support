@@ -77,6 +77,14 @@ try {
   assert(asset); assert.equal((await fetch(base + asset, { headers })).status, 200);
   const manifest = await (await fetch(base + "/manifest.webmanifest", { headers })).json();
   assert.equal(manifest.name, "BCA Messenger");
+  assert.match(html, /favicon\.png\?v=bca-official/);
+  assert.match(html, /apple-touch-icon\.png/);
+  for (const file of ["logo-color.png", "logo-blue.png", "favicon.png", "apple-touch-icon.png", "notification-badge.png", ...manifest.icons.map((icon) => icon.src.slice(1))]) {
+    const image = await fetch(base + "/" + file, { headers });
+    assert.equal(image.status, 200, `Official brand asset must be served: ${file}`);
+    assert.match(image.headers.get("content-type"), /image\/png/);
+    assert.deepEqual([...new Uint8Array(await image.arrayBuffer()).slice(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  }
   assert.equal((await fetch(base + "/sw.js", { headers })).status, 200);
   const sessionResponse = await fetch(base + "/api/auth/session", { headers });
   const session = await sessionResponse.json();

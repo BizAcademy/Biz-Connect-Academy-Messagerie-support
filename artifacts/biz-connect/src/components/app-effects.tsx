@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Download, Share } from "lucide-react";
 import { getGetSummaryQueryKey, useGetSummary } from "@workspace/api-client-react";
 import { playNotificationSound } from "@/lib/chat-utils";
@@ -80,7 +81,7 @@ export function InstallBanner() {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) close(); }}>
       <DialogContent className="max-w-sm rounded-3xl p-6" data-testid="banner-install">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary"><Download className="h-6 w-6" /></div>
+        <BrandLogo className="h-16 w-16 rounded-2xl" />
         <DialogHeader className="text-left">
           <DialogTitle>Installez BCA Messenger</DialogTitle>
           <DialogDescription>Retrouvez votre chat sur l’écran d’accueil et recevez les notifications de nouveaux messages après les avoir autorisées.</DialogDescription>

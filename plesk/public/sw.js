@@ -1,5 +1,5 @@
 /* Only public app assets are cached. API responses and private media never are. */
-const CACHE = "biz-connect-shell-v2";
+const CACHE = "biz-connect-shell-v3-official-logos";
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"])));
   self.skipWaiting();
@@ -31,7 +31,7 @@ self.addEventListener("push", (event) => {
     try { data = event.data.json(); } catch { data = {}; }
     await self.registration.showNotification(data.title || "BCA Messenger", {
       body: data.body || "Vous avez reçu un nouveau message.",
-      icon: "/icon-192.png", badge: "/icon-192.png",
+      icon: "/icon-192.png", badge: "/notification-badge.png",
       tag: data.tag || "biz-connect-message", renotify: true,
       vibrate: [180, 80, 180], data: { conversationId: data.conversationId },
     });

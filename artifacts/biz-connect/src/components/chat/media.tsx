@@ -4,6 +4,7 @@ import { useBlobUrl } from "@/hooks/use-app";
 import { formatDuration, initials } from "@/lib/chat-utils";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +52,7 @@ export function UserAvatar({
         {url ? (
           <img src={url} alt="" className="h-full w-full object-cover" {...protect} />
         ) : team ? (
-          <span className="font-display" style={{ fontSize: size * 0.4 }}>B</span>
+          <BrandLogo className="h-full w-full" />
         ) : (
           initials(name)
         )}
