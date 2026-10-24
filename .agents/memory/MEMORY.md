@@ -2,3 +2,4 @@
 - [Simple Plesk configuration](simple-plesk-configuration.md) — user rejects mandatory STORAGE_DIR; choose private storage automatically without another path question.
 - [ORM test isolation](orm-test-isolation.md) — preserve original Sequelize predicates in capacity-test wrappers; indirect query helpers also use findAll.
 - [Pointer gesture animations](pointer-gesture-animation.md) — entry animations and pointer transforms need separate elements; inspect the actual draggable child.
+- [Local image editing](local-image-editing.md) — annotate and crop before upload; send flattened pixels, not visual-only overlays or unnecessary originals.

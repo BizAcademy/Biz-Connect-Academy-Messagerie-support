@@ -123,6 +123,26 @@ d’interruption. Conserver une sauvegarde avant toute évolution de schéma.
 Des droits ALTER/INDEX sont nécessaires ; aucun build sur Plesk n’est requis.
 Une base neuve initialisée avec cette distribution utilise déjà le nouvel index.
 
+### Retoucher une image avant l’envoi
+
+Le choix d’une photo ouvre un éditeur : crayon libre, flèche, cercle, rectangle,
+texte déplaçable de plusieurs tailles et sept couleurs. L’outil de recadrage
+permet de déplacer le cadre et d’ajuster ses coins, puis d’appliquer la découpe.
+Annuler, rétablir et réinitialiser restent disponibles avant validation.
+
+**Valider** prépare l’aperçu sans envoyer : la légende reste séparée du texte
+dessiné sur la photo. Toucher l’aperçu permet d’ajouter d’autres retouches.
+Les annotations validées font partie des pixels de l’image. **Envoyer l’image**
+transmet ensuite le résultat. Annuler une nouvelle édition conserve l’aperçu
+précédent et sa légende.
+
+Les retouches s’effectuent localement dans le navigateur ; seule l’image finale
+est téléversée. La découpe retire réellement les pixels, et le résultat conserve
+la compression et la limite de 1280 px. Aucune migration SQL supplémentaire.
+
+Test des helpers :
+`pnpm --filter @workspace/api-server exec tsx ../../scripts/test-image-annotations.ts`.
+
 ### Mise à jour : réponses citées et suppressions de messages
 
 Après sauvegarde et déploiement de cette version sur une base MariaDB existante,

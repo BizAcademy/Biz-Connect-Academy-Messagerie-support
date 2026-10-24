@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, ArrowUp, ChevronLeft, ChevronUp, ImagePlus, Loader2, Lock, Mic, Pause, RotateCw, Send, Square, Trash2, X } from "lucide-react";
+import { AlertCircle, ArrowUp, ChevronLeft, ChevronUp, ImagePlus, Loader2, Pencil, Lock, Mic, Pause, RotateCw, Send, Square, Trash2, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getGetSummaryQueryKey,
@@ -15,6 +15,7 @@ import { useRealtime } from "@/components/realtime";
 import { cn } from "@/lib/utils";
 import { MAX_VOICE_BYTES, MAX_VOICE_SECONDS, useVoiceRecorder, type RecorderError } from "./use-voice-recorder";
 import { VoiceDraftPlayer } from "./voice-draft-player";
+import { ImageEditor } from "./image-editor";
 import { appendRealtimeMessage } from "@/lib/realtime-cache";
 
 const LOCK_DY = 64;
@@ -52,6 +53,8 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
   const { toast } = useToast();
   const { status, emitTyping, sendRealtimeMessage } = useRealtime();
   const [text, setText] = useState("");
+  const convRef = useRef(conversationId);
+  convRef.current = conversationId;
   const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
   const [caption, setCaption] = useState("");
   const [preparing, setPreparing] = useState(false);
@@ -124,6 +127,37 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
     });
   };
 
+  // Editor session: source blob + the conversation it belongs to. A token guards stale results.
+  const [editor, setEditor] = useState<{ source: Blob; conversationId: string; fresh: boolean; token: number } | null>(null);
+  const editorToken = useRef(0);
+  const imagePreparation = useRef(0);
+  const previewRef = useRef(preview);
+  previewRef.current = preview;
+  useEffect(() => () => {
+    editorToken.current++;
+    imagePreparation.current++;
+    setPreparing(false);
+    setEditor(null);
+    const p = previewRef.current;
+    if (p) URL.revokeObjectURL(p.url);
+    previewRef.current = null;
+    setPreview(null);
+    setCaption("");
+  }, [conversationId]);
+  const openEditor = (source: Blob, fresh: boolean) => setEditor({ source, conversationId, fresh, token: ++editorToken.current });
+  const editorDone = (blob: Blob | null) => {
+    const e = editor;
+    if (!e || e.token !== editorToken.current || e.conversationId !== convRef.current) { setEditor(null); return; }
+    setEditor(null);
+    const out = blob ?? e.source;
+    if (!blob && !e.fresh) return; // unchanged re-edit: keep current preview
+    const old = previewRef.current;
+    if (old) URL.revokeObjectURL(old.url);
+    setPreview({ blob: out, url: URL.createObjectURL(out) });
+    if (e.fresh) setCaption(text);
+  };
+  const editorCancel = () => setEditor(null); // previous preview and caption untouched
+
   const pickImage = async (f: File | undefined) => {
     if (!f) return;
     if (!f.type.startsWith("image/")) {
@@ -131,15 +165,19 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
       return;
     }
     setPreparing(true);
+    const preparation = ++imagePreparation.current;
     try {
+      const conv = conversationId;
       const blob = await compressImage(f);
-      setPreview({ blob, url: URL.createObjectURL(blob) });
-      setCaption(text);
+      if (preparation !== imagePreparation.current || conv !== convRef.current) return;
+      openEditor(blob, true);
     } catch {
-      toast({ title: "Image illisible", description: "Impossible de préparer cette image.", variant: "destructive" });
+      if (preparation === imagePreparation.current) toast({ title: "Image illisible", description: "Impossible de préparer cette image.", variant: "destructive" });
     } finally {
-      setPreparing(false);
-      if (fileRef.current) fileRef.current.value = "";
+      if (preparation === imagePreparation.current) {
+        setPreparing(false);
+        if (fileRef.current) fileRef.current.value = "";
+      }
     }
   };
   const closePreview = () => {
@@ -148,13 +186,14 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
     setCaption("");
   };
   const sendImage = () => {
-    if (!preview) return;
+    if (!preview || editor) return;
+    const sentPreview = preview;
     upload.mutate(
       { data: { file: preview.blob, purpose: "image", conversationId } },
       {
         onSuccess: (file) =>
           sendData({ type: "image", fileId: file.id, content: caption.trim() || undefined }, () => {
-            closePreview();
+            if (previewRef.current === sentPreview) closePreview();
             setText("");
           }),
         onError: (e) => toast({ title: "Envoi de l'image impossible", description: errorMessage(e), variant: "destructive" }),
@@ -168,8 +207,6 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
   const [recErr, setRecErr] = useState<RecorderError | null>(null);
   const [mode, setMode] = useState<"hold" | "locked">("hold");
   const [drag, setDrag] = useState({ dx: 0, dy: 0 });
-  const convRef = useRef(conversationId);
-  convRef.current = conversationId;
   const recordingConversation = useRef(conversationId);
   const draftRef = useRef<VoiceDraft | null>(null);
   draftRef.current = draft;
@@ -386,13 +423,16 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
       {preview && (
         <div className="absolute inset-x-0 bottom-full border-t bg-card p-3 shadow-[0_-12px_30px_-18px_rgba(11,27,63,0.4)] animate-in slide-in-from-bottom-4 duration-200" data-testid="panel-image-preview">
           <div className="mx-auto flex max-w-3xl gap-3">
-            <img src={preview.url} alt="Aperçu" className="h-28 w-28 shrink-0 rounded-xl object-cover" />
+            <button type="button" onClick={() => openEditor(preview.blob, false)} disabled={busy} className="group relative h-28 w-28 shrink-0 overflow-hidden rounded-xl disabled:opacity-60" aria-label="Modifier l’image" data-testid="button-edit-image">
+              <img src={preview.url} alt="Aperçu" className="h-full w-full object-cover" data-testid="img-image-preview" />
+              <span className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-[#070B16]/75 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur"><Pencil className="h-3 w-3" />Modifier</span>
+            </button>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Aperçu · {(preview.blob.size / 1024).toFixed(0)} Ko compressé
                 </span>
-                <button onClick={closePreview} className="rounded-full p-1 text-muted-foreground hover:bg-muted" aria-label="Annuler" data-testid="button-cancel-image">
+                <button onClick={closePreview} disabled={busy} className="rounded-full p-1 text-muted-foreground hover:bg-muted" aria-label="Annuler" data-testid="button-cancel-image">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -418,6 +458,8 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
           </div>
         </div>
       )}
+
+      {editor && <ImageEditor key={editor.token} source={editor.source} onCancel={editorCancel} onDone={editorDone} />}
 
       {recErr && !recording && (
         <div className="mx-auto flex max-w-3xl items-start gap-2 px-3 pt-2 text-sm" role="alert" data-testid="status-voice-error">

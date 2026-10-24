@@ -120,6 +120,8 @@ Voir README pour sauvegardes et prérequis.
 
 ## Temps réel
 
+- Avant l’envoi des photos, proposer texte sur l’image, dessin de plusieurs
+  couleurs, flèches, cercles, rectangles et recadrage.
 - Le glissement pour répondre doit fonctionner vers la gauche et vers la droite,
   sur les messages envoyés comme reçus, avec déplacement visible suivant le doigt.
 - Entrée doit toujours ajouter une ligne, sur ordinateur comme sur mobile ;
