@@ -72,9 +72,10 @@ export async function serializeMessages(rows: any[]) {
     };
   });
 }
-export async function deliverPending(conversationId: string, identity: Identity) {
+export async function deliverPending(conversationId: string, identity: Identity, before = new Date()) {
   const [count] = await MessageRecord.update({ status: "delivered" }, { where: {
     conversationId, senderRole: { [Op.ne]: identity.role }, status: "sent",
+    createdAt: { [Op.lte]: before },
   } });
   return count;
 }

@@ -179,6 +179,7 @@ export const SendMessageBody = zod.object({
   "content": zod.string().max(sendMessageBodyContentMax).optional(),
   "fileId": zod.string().uuid().optional(),
   "replyToId": zod.string().uuid().optional(),
+  "clientMessageId": zod.string().uuid().optional().describe('Stable identifier reused when retrying a send'),
   "duration": zod.number().min(sendMessageBodyDurationMin).max(sendMessageBodyDurationMax).optional()
 })
 

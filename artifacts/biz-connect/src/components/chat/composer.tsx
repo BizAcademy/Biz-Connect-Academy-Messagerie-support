@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, ArrowUp, ChevronLeft, ChevronUp, ImagePlus, Loader2, Lock, Mic, Pause, RotateCw, Send, Square, Trash2, X } from "lucide-react";
-import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  getGetMessagesQueryKey,
   getGetSummaryQueryKey,
-  sendMessage,
   uploadFile,
-  useSendMessage,
   useUploadFile,
   type Message,
   type MessageInput,
@@ -18,13 +15,14 @@ import { useRealtime } from "@/components/realtime";
 import { cn } from "@/lib/utils";
 import { MAX_VOICE_BYTES, MAX_VOICE_SECONDS, useVoiceRecorder, type RecorderError } from "./use-voice-recorder";
 import { VoiceDraftPlayer } from "./voice-draft-player";
+import { appendRealtimeMessage } from "@/lib/realtime-cache";
 
 const LOCK_DY = 64;
 const CANCEL_DX = 110;
 const UPLOAD_DEADLINE = 90_000;
 const SEND_DEADLINE = 25_000;
 
-type VoiceDraft = { conversationId: string; blob: Blob; url: string; duration: number; fileId?: string; replyToId?: string };
+type VoiceDraft = { conversationId: string; blob: Blob; url: string; duration: number; fileId?: string; replyToId?: string; clientMessageId: string };
 type VoiceSend = { status: "idle" | "uploading" | "sending" | "error"; error?: string };
 
 async function withDeadline<T>(ms: number, run: (signal: AbortSignal) => Promise<T>, outer: AbortSignal): Promise<T> {
@@ -52,7 +50,7 @@ async function withDeadline<T>(ms: number, run: (signal: AbortSignal) => Promise
 export function Composer({ conversationId, replyTo, onClearReply }: { conversationId: string; replyTo?: Message | null; onClearReply?: () => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { emitTyping } = useRealtime();
+  const { status, emitTyping, sendRealtimeMessage } = useRealtime();
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
   const [caption, setCaption] = useState("");
@@ -61,35 +59,37 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
   const taRef = useRef<HTMLTextAreaElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingOn = useRef(false);
+  const pendingSend = useRef<{ fingerprint: string; id: string } | null>(null);
 
-  const send = useSendMessage();
+  const send = useMutation({ mutationFn: ({ id, data }: { id: string; data: MessageInput }) => sendRealtimeMessage(id, data) });
   const upload = useUploadFile();
   const busy = send.isPending || upload.isPending;
 
   const pushMessage = (m: Message) => {
-    qc.setQueryData<InfiniteData<{ messages: Message[]; cursor: string }>>(["chat-history", m.conversationId], (old) => {
-      if (!old?.pages.length) return old;
-      return { ...old, pages: old.pages.map((page, i) => i === 0 ? { ...page, messages: page.messages.some((x) => x.id === m.id) ? page.messages : [...page.messages, m] } : page) };
-    });
-    void qc.invalidateQueries({ queryKey: ["chat-history", m.conversationId] });
+    appendRealtimeMessage(qc, m);
     onClearReply?.();
-    qc.setQueryData<Message[]>(getGetMessagesQueryKey(m.conversationId), (old) =>
-      old ? (old.some((x) => x.id === m.id) ? old : [...old, m]) : [m],
-    );
-    void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "/api/conversations" });
-    void qc.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
+    if (status !== "online") {
+      void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "/api/conversations" });
+      void qc.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
+    }
   };
-  const sendData = (data: MessageInput, onDone?: () => void) =>
+  const sendData = (data: MessageInput, onDone?: () => void) => {
+    const payload = { ...data, ...(replyTo ? { replyToId: replyTo.id } : {}) };
+    const fingerprint = JSON.stringify([conversationId, payload]);
+    if (pendingSend.current?.fingerprint !== fingerprint) pendingSend.current = { fingerprint, id: crypto.randomUUID() };
+    const clientMessageId = pendingSend.current.id;
     send.mutate(
-      { id: conversationId, data: { ...data, ...(replyTo ? { replyToId: replyTo.id } : {}) } },
+      { id: conversationId, data: { ...payload, clientMessageId } },
       {
         onSuccess: (m) => {
+          if (pendingSend.current?.id === clientMessageId) pendingSend.current = null;
           pushMessage(m);
           onDone?.();
         },
         onError: (e) => toast({ title: "Message non envoyé", description: errorMessage(e), variant: "destructive" }),
       },
     );
+  };
 
   const stopTyping = () => {
     if (typingTimer.current) clearTimeout(typingTimer.current);
@@ -100,7 +100,8 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
 
   const onText = (v: string) => {
     setText(v);
-    if (!typingOn.current && v.trim()) {
+    if (!v.trim()) stopTyping();
+    if (v.trim()) {
       typingOn.current = true;
       emitTyping(conversationId, true);
     }
@@ -187,7 +188,7 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
       }
       setRecErr(null);
       setVsend({ status: "idle" });
-      setDraft({ conversationId: recordingConversation.current, blob, url: URL.createObjectURL(blob), duration, replyToId: replyTo?.id });
+      setDraft({ conversationId: recordingConversation.current, blob, url: URL.createObjectURL(blob), duration, replyToId: replyTo?.id, clientMessageId: crypto.randomUUID() });
     },
     (e) => setRecErr(e),
   );
@@ -242,7 +243,7 @@ export function Composer({ conversationId, replyTo, onClearReply }: { conversati
       setVsend({ status: "sending" });
       const m = await withDeadline(
         SEND_DEADLINE,
-        (signal) => sendMessage(d.conversationId, { type: "voice", fileId, duration: Math.min(MAX_VOICE_SECONDS, d.duration), ...(d.replyToId ? { replyToId: d.replyToId } : {}) }, { signal }),
+        (signal) => sendRealtimeMessage(d.conversationId, { type: "voice", fileId, clientMessageId: d.clientMessageId, duration: Math.min(MAX_VOICE_SECONDS, d.duration), ...(d.replyToId ? { replyToId: d.replyToId } : {}) }, signal),
         ctl.signal,
       );
       if (!alive()) return;

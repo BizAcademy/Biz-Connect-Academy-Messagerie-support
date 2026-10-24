@@ -5,6 +5,7 @@ import { ChatView } from "@/components/chat/chat-view";
 import { UserAvatar } from "@/components/chat/media";
 import { ConnectionPill } from "@/components/app-effects";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatLastSeen } from "@/lib/chat-utils";
 
 export function MemberChat({ account, onOpenSettings }: { account: Account; onOpenSettings: () => void }) {
   const { status, typing } = useRealtime();
@@ -19,7 +20,7 @@ export function MemberChat({ account, onOpenSettings }: { account: Account; onOp
       <div className="min-w-0 flex-1">
         <div className="truncate font-display text-[17px] leading-tight">Support BCA</div>
         <div className="text-xs">
-          {conv && typing[conv.id] ? <span className="font-medium text-[#16A34A]">un conseiller écrit…</span> : <ConnectionPill />}
+          {conv && typing[conv.id] ? <span className="font-medium text-[#16A34A]">un conseiller écrit…</span> : status !== "online" ? <ConnectionPill /> : conv?.online ? <span className="font-medium text-[#16A34A]" data-testid="support-online">en ligne</span> : <span className="text-muted-foreground" data-testid="support-offline">{formatLastSeen(conv?.lastSeen ?? null)}</span>}
         </div>
       </div>
       <button onClick={onOpenSettings} className="rounded-full p-0.5" aria-label="Paramètres" data-testid="button-settings">

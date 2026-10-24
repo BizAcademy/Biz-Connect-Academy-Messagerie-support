@@ -41,6 +41,38 @@ restent précréés avec un mot de passe ; aucun rôle admin n’est fourni par 
 
 ## Prérequis
 
+### Temps réel Socket.IO
+
+La connexion authentifiée utilise `/api/socket.io` (WebSocket avec repli
+long-polling pour les proxys qui ne permettent pas la mise à niveau WebSocket).
+Les membres restent isolés : seul le support et le propriétaire reçoivent
+les événements d’une conversation.
+
+- `message:send` : validation et enregistrement côté serveur, puis accusé de
+  réception. Le client réutilise `clientMessageId` lors du repli HTTP après
+  une perte d’accusé, pour ne pas créer de doublon.
+- `message:new` : contenu du message directement intégré dans le fil, sans
+  recharger l’historique.
+- `message:received` / `messages:status` : réception par le destinataire et
+  mise à jour des coches, sans rétrograder un message déjà lu.
+- `presence` / `support:presence` : présence membre réservée au support,
+  présence globale du support visible par les membres ; plusieurs onglets
+  ne provoquent pas de faux passage hors ligne.
+- `typing` : événement temporaire limité en fréquence, arrêt immédiat et
+  expiration automatique, y compris après une déconnexion.
+- `message:deleted` : retrait direct du message pour les comptes concernés.
+
+Après reconnexion, le client recharge les données manquées. Hors connexion
+Socket.IO, les routes HTTP et le rafraîchissement périodique restent disponibles.
+La mise à jour des listes et compteurs est regroupée sur 250 ms. Les anciennes
+interfaces déjà ouvertes reçoivent un événement de compatibilité `changed`.
+Cette optimisation ne nécessite aucune nouvelle colonne de base de données.
+
+Tests sans connexion à une base réelle :
+`pnpm --filter @workspace/api-server exec tsx src/services/realtime.test.ts`
+et
+`pnpm --filter @workspace/biz-connect exec tsx src/lib/realtime-cache.test.ts`.
+
 ### Mise à jour : sessions de chat par nom et téléphone
 
 Sur une **base Plesk déjà utilisée**, après le pull GitHub et **Deploy Now**,

@@ -117,3 +117,13 @@ Voir README pour sauvegardes et prérequis.
   Ne jamais promettre qu’un site peut autoriser ou ouvrir les réglages système.
 - Le déploiement Plesk ne doit pas exiger une installation système manuelle
   d’un outil audio ni une configuration supplémentaire pour les vocaux.
+
+## Temps réel
+
+- Préférer l’intégration directe des événements Socket.IO au rechargement du
+  fil à chaque message, coche ou changement de présence.
+- Les réessais Socket.IO/HTTP partagent un identifiant stable afin qu’un accusé
+  perdu ne crée pas deux messages. Une coche de lecture ne doit pas régresser
+  si un accusé d’envoi arrive après la réception.
+- Conserver le rattrapage après reconnexion, le repli HTTP, les sessions
+  authentifiées et l’isolation des conversations membre/support.

@@ -160,6 +160,8 @@ export interface MessageInput {
   content?: string;
   fileId?: string;
   replyToId?: string;
+  /** Stable identifier reused when retrying a send */
+  clientMessageId?: string;
   /**
      * @minimum 0
      * @maximum 300

@@ -154,6 +154,9 @@ try {
     const socket = io(base, { path: "/api/socket.io", transports: ["websocket"], reconnection: false,
       auth: { csrfToken: b.csrf() }, extraHeaders: { Cookie: b.cookie(), Origin: "https://bca.test" } });
     sockets.push(socket);
+    socket.on("message:new", ({ conversationId, message }) => {
+      if (message.senderRole !== (b === member ? "member" : "admin")) socket.emit("message:received", { conversationId, messageId: message.id });
+    });
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("Socket connection timed out")), 5000);
       socket.once("connect", () => { clearTimeout(timeout); resolve(); });
@@ -168,7 +171,13 @@ try {
   const [presence] = await connection.query("SELECT account_id FROM presence");
   assert.equal(presence.length, 2, "Presence.upsert must work with MySQL");
   assert.equal((await member.request("/conversations"))[0].online, true);
-  assert.equal((await member.request(`/conversations/${id}/messages`, "POST", { type: "text", content: "Support en ligne" })).status, "delivered");
+  const liveMessage = await member.request(`/conversations/${id}/messages`, "POST", { type: "text", content: "Support en ligne" });
+  assert.equal(liveMessage.status, "sent", "Delivery requires a real recipient acknowledgment");
+  for (let i = 0; i < 20; i++) {
+    if ((await member.request(`/conversations/${id}/messages`)).find((m) => m.id === liveMessage.id)?.status === "delivered") break;
+    await delay(50);
+  }
+  assert.equal((await member.request(`/conversations/${id}/messages`)).find((m) => m.id === liveMessage.id)?.status, "delivered");
   assert.equal((await member.request("/auth/refresh", "POST")).account.role, "member");
   await member.request("/auth/logout", "POST");
   await member.request("/conversations", "GET", undefined, 401);

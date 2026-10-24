@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { errorMessage } from "@/lib/api-fetch";
 import { useToast } from "@/hooks/use-toast";
+import { mapRealtimeMessages } from "@/lib/realtime-cache";
 
 function Ticks({ status }: { status: Message["status"] }) {
   if (status === "sent") return <Check aria-label="Envoyé, pas encore reçu" className="h-3.5 w-3.5 text-white" data-testid="status-sent" />;
@@ -201,14 +202,14 @@ export function ChatView({
       if (!pendingRead || document.visibilityState !== "visible" || !document.hasFocus()) return;
       if (markedFor.current === `${conversationId}:${pendingRead}`) return;
       markedFor.current = `${conversationId}:${pendingRead}`;
+      const visibleIds = new Set(messages.filter((m) => m.senderRole !== myRole).map((m) => m.id));
       markRef.current(
         { id: conversationId },
         {
           onSuccess: () => {
             void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "/api/conversations" });
             void qc.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
-            void qc.invalidateQueries({ queryKey: getGetMessagesQueryKey(conversationId) });
-            void qc.invalidateQueries({ queryKey: ["chat-history", conversationId] });
+            mapRealtimeMessages(qc, conversationId, (m) => visibleIds.has(m.id) ? { ...m, status: "read" } : m);
           },
           onError: () => {
             markedFor.current = null;

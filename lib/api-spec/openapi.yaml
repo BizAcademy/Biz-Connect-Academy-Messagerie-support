@@ -318,6 +318,7 @@ components:
         content: { type: string, maxLength: 10000 }
         fileId: { type: string, format: uuid }
         replyToId: { type: string, format: uuid }
+        clientMessageId: { type: string, format: uuid, description: Stable identifier reused when retrying a send }
         duration: { type: number, minimum: 0, maximum: 300 }
     FileInput:
       type: object

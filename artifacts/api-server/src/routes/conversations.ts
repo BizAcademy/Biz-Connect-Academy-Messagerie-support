@@ -1,16 +1,15 @@
 import { Router } from "express";
-import { randomUUID } from "node:crypto";
 import { Op } from "sequelize";
-import { Conversation, MessageRecord, PrivateFile, sequelize } from "@workspace/db";
+import { MessageRecord, sequelize } from "@workspace/db";
 import {
   ListConversationsQueryParams, ListConversationsResponse, GetSummaryResponse,
-  UpdateConversationBody, SendMessageBody, GetMessagesResponse, SendMessageResponse,
+  UpdateConversationBody, GetMessagesResponse,
   GetMessagesQueryParams, DeleteMessageQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { authorizeConversation, inbox, serializeMessages, deliverPending } from "../services/conversations";
-import { notifyConversation, isOnline, isSupportOnline } from "../services/realtime";
-import { sendMessagePush } from "../services/push";
+import { notifyConversation, emitReceipt, emitDeletion } from "../services/realtime";
+import { persistMessage, MessageSendError } from "../services/message-send";
 
 const router = Router();
 router.use("/conversations", requireAuth);
@@ -47,7 +46,8 @@ router.patch("/conversations/:id", async (req, res) => {
 router.get("/conversations/:id/messages", async (req, res) => {
   const c = await authorizeConversation(String(req.params.id), req.identity!);
   if (!c) { res.status(404).json({ error: "Conversation introuvable." }); return; }
-  const delivered = await deliverPending(c.get("id") as string, req.identity!);
+  const receivedBefore = new Date();
+  const delivered = await deliverPending(c.get("id") as string, req.identity!, receivedBefore);
   const params = GetMessagesQueryParams.safeParse(req.query);
   if (!params.success) { res.status(400).json({ error: "Page invalide." }); return; }
   const before = params.data.before ? await MessageRecord.findOne({ where: { id: params.data.before, conversationId: c.get("id") } }) : null;
@@ -66,42 +66,14 @@ router.get("/conversations/:id/messages", async (req, res) => {
   const visible = rows.filter((r) => !JSON.parse(String(r.get("hiddenFor") || "[]")).includes(key));
   res.setHeader("X-History-Cursor", rows.length === 100 ? String(rows[rows.length - 1]!.get("id")) : "");
   res.json(GetMessagesResponse.parse(await serializeMessages(visible.reverse())));
-  if (delivered) notifyConversation(c.get("id") as string, c.get("userId") as string);
+  if (delivered) emitReceipt(String(c.get("id")), String(c.get("userId")), { status: "delivered", senderRole: req.identity!.role === "member" ? "admin" : "member", before: receivedBefore.toISOString() });
 });
 router.post("/conversations/:id/messages", async (req, res) => {
-  const identity = req.identity!;
-  const c = await authorizeConversation(String(req.params.id), identity);
-  if (!c) { res.status(404).json({ error: "Conversation introuvable." }); return; }
-  const parsed = SendMessageBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Message invalide (10 000 caractères maximum)." }); return; }
-  const data = parsed.data;
-  if (data.replyToId && !await MessageRecord.findOne({ where: { id: data.replyToId, conversationId: c.get("id") } })) {
-    res.status(400).json({ error: "Le message cité n’existe plus dans cette conversation." }); return;
+  try { res.status(201).json(await persistMessage(req.identity!, String(req.params.id), req.body)); }
+  catch (error) {
+    if (!(error instanceof MessageSendError)) throw error;
+    res.status(error.status).json({ error: error.message });
   }
-  if (data.type === "text" && !data.content?.trim()) { res.status(400).json({ error: "Le message est vide." }); return; }
-  let file: Awaited<ReturnType<typeof PrivateFile.findByPk>> = null;
-  if (data.type !== "text") {
-    file = data.fileId ? await PrivateFile.findOne({ where: {
-      id: data.fileId, ownerId: identity.id, conversationId: c.get("id"), purpose: data.type,
-    } }) : null;
-    if (!file) { res.status(400).json({ error: "Pièce jointe invalide." }); return; }
-  }
-  const created = await sequelize.transaction(async (transaction) => {
-    const message = await MessageRecord.create({
-      id: randomUUID(), conversationId: c.get("id"), senderId: identity.id, senderRole: identity.role,
-      type: data.type, content: data.content?.trim() || "", fileId: file?.get("id") || null,
-      duration: data.type === "voice" ? file?.get("duration") : null,
-      status: (identity.role === "admin" ? isOnline(c.get("userId") as string) : isSupportOnline()) ? "delivered" : "sent",
-      isRead: false, createdAt: new Date(),
-      replyToId: data.replyToId || null, hiddenFor: "[]",
-    }, { transaction });
-    await c.update({ lastMessageAt: new Date() }, { transaction });
-    return message;
-  });
-  const [message] = await serializeMessages([created]);
-  notifyConversation(c.get("id") as string, c.get("userId") as string);
-  void sendMessagePush(identity, c.get("userId") as string, message).catch((err) => req.log.warn({ err }, "Push failed"));
-  res.status(201).json(SendMessageResponse.parse(message));
 });
 router.delete("/conversations/:id/messages/:messageId", async (req, res) => {
   const identity = req.identity!;
@@ -125,16 +97,18 @@ router.delete("/conversations/:id/messages/:messageId", async (req, res) => {
     }
   });
   if (!found) { res.status(404).json({ error: "Message introuvable." }); return; }
-  notifyConversation(c.get("id") as string, c.get("userId") as string);
+  emitDeletion(String(c.get("id")), String(c.get("userId")), String(req.params.messageId), scope === "me" ? identity : undefined);
   res.json({ ok: true });
 });
 router.post("/conversations/:id/read", async (req, res) => {
   const c = await authorizeConversation(String(req.params.id), req.identity!);
   if (!c) { res.status(404).json({ error: "Conversation introuvable." }); return; }
+  const before = new Date();
   const [count] = await MessageRecord.update({ isRead: true, status: "read" }, { where: {
     conversationId: c.get("id"), senderRole: { [Op.ne]: req.identity!.role }, isRead: false,
+    createdAt: { [Op.lte]: before },
   } });
-  if (count) notifyConversation(c.get("id") as string, c.get("userId") as string);
+  if (count) emitReceipt(String(c.get("id")), String(c.get("userId")), { status: "read", senderRole: req.identity!.role === "member" ? "admin" : "member", before: before.toISOString() });
   res.json({ ok: true });
 });
 export default router;
