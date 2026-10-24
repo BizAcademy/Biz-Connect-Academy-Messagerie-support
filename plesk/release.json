@@ -1,7 +1,7 @@
 {
   "format": 1,
   "application": "BCA Messenger",
-  "sourceHash": "5253c7378a134f578e3c59a9afc6c61ad830e7db597451fcbe37f24ffe24baaf",
+  "sourceHash": "b2f6b73449f0767ec905252e4784a6fdf9580c313e0762208f7a5f72e2b52176",
   "files": {
     "admin.cjs": "2122824b6f46ad9dc7211cae44f11705e9b9bd2227c1af7d447f82d238823c6f",
     "app.cjs": "7063f96fa998b509116ca2c27d790f390ba3f370d9a22b01614a3baee4a92a47",
@@ -31,7 +31,7 @@
     "schema/initial-mysql.sql": "9aba0703de5c8d4d4f86f7ecee3770f303f6b7e78c91e59cfd2e47b7e37b1024",
     "schema/initial.sql": "cddd050b52d08fca9c9c3b6eea8d1fd3c7bfa54a12f9a0625093209ddc4bcb39",
     "server/admin.mjs": "0fea41a7572358feb15efab37b5097396efc34d668f03046fd8bd445870a4ddd",
-    "server/index.mjs": "586327393784f36df826efcff250d15fe1ce8e43e0fa34e8ade45d0fc2310572",
+    "server/index.mjs": "d0ae27d53ef658d5aee750f74546ea0799ea36cdf08d9da5fb3d5f49cdb757e5",
     "server/member.mjs": "9b097f9abffd003d5aefea787d513b1bf9fbe1d04bcbf03d7bc81c4e097abc00",
     "server/pino-file.mjs": "634ed55fc8019f3da587bc375010d1d1e6832f84f2731f7ccb8f361151862dab",
     "server/pino-pretty.mjs": "c8bf15613a452907f65970511cb794f9a5fce3dc5a149ccc892ae1ab7df1eefd",

@@ -30,8 +30,13 @@ async function withPushSlot(run: () => Promise<unknown>) {
 export function validPushEndpoint(endpoint: string) {
   try {
     const url = new URL(endpoint);
+    // Edge on Windows uses regional WNS hosts (e.g. wns2-am3p.notify.windows.com),
+    // while Edge on Android generally uses Google's FCM. Keep the suffix bounded
+    // to Microsoft's domain: accepting arbitrary HTTPS endpoints enables SSRF.
+    const trustedHost = ["fcm.googleapis.com", "updates.push.services.mozilla.com", "web.push.apple.com"].includes(url.hostname)
+      || /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.notify\.windows\.com$/.test(url.hostname);
     return url.protocol === "https:" && !url.username && !url.password && !url.port &&
-      ["fcm.googleapis.com", "updates.push.services.mozilla.com", "web.push.apple.com"].includes(url.hostname);
+      !url.hash && trustedHost;
   } catch { return false; }
 }
 export async function sendMessagePush(identity: Identity, userId: string, message: any) {
