@@ -1,14 +1,14 @@
 {
   "format": 1,
   "application": "BCA Messenger",
-  "sourceHash": "3128454ae5d2ddd4684e4f956aeb164417347aae203c84cc8ce0b635ba2435f7",
+  "sourceHash": "5459336286c900a567509997c2a8fb1d1d20b7c0ed9911a70c41790330ee298b",
   "files": {
     "admin.cjs": "2122824b6f46ad9dc7211cae44f11705e9b9bd2227c1af7d447f82d238823c6f",
     "app.cjs": "7063f96fa998b509116ca2c27d790f390ba3f370d9a22b01614a3baee4a92a47",
     "deploy.cjs": "79f6d2dc1953f65d6e96b7a974712512ea9205b74776f845b57a5c102ef6cbe8",
     "deploy.sh": "27c62e2774d1d23f69febdc6eb4d09dd20243b632cb4b07f487a4e1c3fe55cec",
     "diagnose.cjs": "c11a611eae3c1e4c5144c56e1044fac18c0a4a5ae4a53beea7ee2f992116940f",
-    "environment.cjs": "9dc7ea305509d499b4eaeaaf5ca996fdd236366eb3a50d233e441bf9faa42b51",
+    "environment.cjs": "b3e6373b918d742d25eada380cfe23131d872fb632a9ce926f0b25c85ca87804",
     "member.cjs": "1b54a8067f6a3c808331e207df516b06b0250e131189ab5632eb18a90c4b4b27",
     "package-lock.json": "c86fab800e94d3316a1494108ba10956711a7d4c8703ba2c5d0d123d50a7615e",
     "package.json": "13f1579e44f9ca5973f5f3eaf81980dc88adab51384f3d0c9d25ac83f7236797",

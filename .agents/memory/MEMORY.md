@@ -1,1 +1,2 @@
 - [Native database tests](native-database-tests.md) — MariaDB bootstrap can fail inside the command runner before application code; distinguish this from a database regression.
+- [Simple Plesk configuration](simple-plesk-configuration.md) — user rejects mandatory STORAGE_DIR; choose private storage automatically without another path question.

@@ -1,7 +1,44 @@
 "use strict";
 const fs = require("node:fs");
 const path = require("node:path");
+const { createHash } = require("node:crypto");
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
+function inside(parent, child) {
+  const relative = path.relative(parent, child);
+  return relative === "" || (!relative.startsWith(".." + path.sep) && relative !== ".." && !path.isAbsolute(relative));
+}
+function prepareStorage(root) {
+  const automatic = !process.env.STORAGE_DIR;
+  // Plesk keeps the Git checkout in the parent of this distribution. Its
+  // sibling is outside Deploy Now's files and outside the document root.
+  const base = path.resolve(root, "..", "..", ".bca-messenger-private");
+  const site = createHash("sha256").update(root).digest("hex").slice(0, 24);
+  const directory = process.env.STORAGE_DIR || path.join(base, site);
+  if (!path.isAbsolute(directory)) {
+    fail("BCA_STORAGE_DIR", "Un chemin de stockage personnalisé doit être absolu. Supprimer STORAGE_DIR pour utiliser le stockage privé automatique.");
+  }
+  if (inside(root, directory)) {
+    fail("BCA_STORAGE_PRIVATE", "Le stockage privé ne peut pas être placé dans le dossier applicatif ou public.");
+  }
+  try {
+    if (automatic) fs.mkdirSync(base, { recursive: true, mode: 0o700 });
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const resolved = fs.realpathSync(directory);
+    if (inside(fs.realpathSync(root), resolved)) {
+      fail("BCA_STORAGE_PRIVATE", "Le stockage privé ne peut pas pointer vers le dossier applicatif ou public.");
+    }
+    if (automatic && inside(fs.realpathSync(path.dirname(root)), resolved)) {
+      fail("BCA_STORAGE_PRIVATE", "Le stockage automatique doit rester hors du dossier déployé.");
+    }
+    if (automatic) fs.chmodSync(resolved, 0o700);
+    if (!fs.statSync(resolved).isDirectory()) throw new Error();
+    fs.accessSync(resolved, fs.constants.R_OK | fs.constants.W_OK | fs.constants.X_OK);
+    process.env.STORAGE_DIR = resolved;
+  } catch (error) {
+    if (error?.code === "BCA_STORAGE_PRIVATE") throw error;
+    fail("BCA_STORAGE_ACCESS", "Impossible de préparer le stockage privé. Vérifier les droits d'écriture de l'utilisateur Node.js dans le dossier parent du dépôt.");
+  }
+}
 
 module.exports = function prepareEnvironment() {
   if (Number(process.versions.node.split(".")[0]) < 22) fail("BCA_NODE_VERSION", "Node.js 22 ou supérieur est requis.");
@@ -35,13 +72,6 @@ module.exports = function prepareEnvironment() {
   if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
     fail("BCA_SESSION_SECRET", "SESSION_SECRET doit contenir au moins 32 caractères et rester identique après les déploiements.");
   }
-  if (!process.env.STORAGE_DIR || !path.isAbsolute(process.env.STORAGE_DIR)) {
-    fail("BCA_STORAGE_DIR", "STORAGE_DIR doit être un chemin absolu vers un dossier privé persistant, hors du dépôt déployé.");
-  }
-  const relativeStorage = path.relative(root, path.resolve(process.env.STORAGE_DIR));
-  if (!relativeStorage.startsWith(".." + path.sep) && relativeStorage !== "..") {
-    fail("BCA_STORAGE_PRIVATE", "Le stockage privé doit être situé hors du dossier plesk/.");
-  }
   if (!process.env.APP_ORIGIN) fail("BCA_APP_ORIGIN", "Configurer APP_ORIGIN avec l'adresse HTTPS du domaine.");
   let origin;
   try { origin = new URL(process.env.APP_ORIGIN); }
@@ -49,5 +79,6 @@ module.exports = function prepareEnvironment() {
   if (origin.protocol !== "https:" || origin.origin !== process.env.APP_ORIGIN) {
     fail("BCA_APP_ORIGIN", "APP_ORIGIN doit être une origine HTTPS sans chemin ni barre oblique finale.");
   }
+  prepareStorage(root);
   process.chdir(root);
 };

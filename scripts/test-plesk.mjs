@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync, fork } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdtemp, cp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, cp, rm, readFile, writeFile, stat, symlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import net from "node:net";
@@ -13,6 +13,7 @@ const temp = await mkdtemp(path.join(os.tmpdir(), "bca-plesk-"));
 const app = path.join(temp, "application");
 const privateStorage = path.join(temp, "private-storage");
 let child;
+let automaticStorage;
 function run(args, cwd = app, env = process.env) {
   const result = spawnSync(process.execPath, args, { cwd, env, encoding: "utf8", timeout: 120000 });
   assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -25,14 +26,29 @@ try {
     filter: (file) => !["node_modules", ".env", ".runtime-dependencies.sha256", ".startup-status.json"].includes(path.basename(file)),
   });
   const env = { ...process.env, NODE_ENV: "production", SESSION_SECRET: randomBytes(32).toString("hex"),
-    DATABASE_URL: "postgresql://unused:unused@127.0.0.1:1/unused", STORAGE_DIR: privateStorage, APP_ORIGIN: "https://bca.test" };
+    DATABASE_URL: "postgresql://unused:unused@127.0.0.1:1/unused", STORAGE_DIR: "", APP_ORIGIN: "https://bca.test" };
   for (const k of Object.keys(env)) if (k.startsWith("CYBRANCEE_DB_") || k.startsWith("ADMIN_") || k.startsWith("MEMBER_")) delete env[k];
   run(["deploy.cjs"], app, env);
+  const storageProbe = ["-e", "require('./environment.cjs')(); process.stdout.write(process.env.STORAGE_DIR);"];
+  automaticStorage = run(storageProbe, app, env);
+  assert(path.relative(path.dirname(app), automaticStorage).startsWith(".." + path.sep), "Automatic storage must be outside the Git checkout");
+  assert.equal((await stat(automaticStorage)).mode & 0o777, 0o700);
+  await writeFile(path.join(automaticStorage, "persistence-check"), "keep-private", { mode: 0o600 });
+  assert.equal(run(storageProbe, app, env), automaticStorage, "Storage location must be stable");
+  assert.equal(run(storageProbe, app, { ...env, STORAGE_DIR: privateStorage }), privateStorage, "Existing configured storage must remain unchanged");
+  for (const dir of ["relative-storage", path.join(app, "public")]) {
+    const badStorage = spawnSync(process.execPath, storageProbe, { cwd: app, env: { ...env, STORAGE_DIR: dir }, encoding: "utf8" });
+    assert.equal(badStorage.status, 1, "Relative or public storage must be rejected");
+  }
+  const linkedStorage = path.join(temp, "public-symlink");
+  await symlink(path.join(app, "public"), linkedStorage);
+  assert.equal(spawnSync(process.execPath, storageProbe, { cwd: app, env: { ...env, STORAGE_DIR: linkedStorage }, encoding: "utf8" }).status, 1, "Symlinks must not expose private files in public");
   const require = createRequire(path.join(app, "package.json"));
   for (const name of ["sequelize", "mysql2", "pg", "sharp"]) {
     assert(require.resolve(name).startsWith(path.join(app, "node_modules")), "Must not depend on workspace node_modules");
   }
   assert.match(run(["deploy.cjs"], app, env), /aucune installation nécessaire/);
+  assert.equal(await readFile(path.join(automaticStorage, "persistence-check"), "utf8"), "keep-private", "Deploy must preserve private attachments");
   const probe = net.createServer();
   await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));
   const port = probe.address().port;
@@ -124,5 +140,6 @@ try {
   console.log("PASS: isolated prebuilt startup, runtime dependencies without a build, cached deployment, HTML/assets/PWA/API, HTTPS, safe URL encoding, incomplete release rejected, bounded diagnostic, persistent private startup report and secrets never printed.");
 } finally {
   if (child) { child.kill("SIGTERM"); await new Promise((resolve) => child.once("exit", resolve)); }
+  if (automaticStorage) await rm(automaticStorage, { recursive: true, force: true });
   await rm(temp, { recursive: true, force: true });
 }

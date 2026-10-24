@@ -160,12 +160,20 @@ Passenger, au démarrage ou dans l'action « Deploy Now ».
    avec une URL `postgresql://...` pour les installations existantes.
    Un fichier privé `plesk/.env` permet de fournir la même configuration au
    serveur et à « Run script » si les variables du panneau ne sont pas transmises.
-   `SESSION_SECRET` (32 caractères minimum), `APP_ORIGIN` HTTPS sans `/` final et
-   `STORAGE_DIR` absolu sont requis. Conserver les clés de chiffrement après les
+   Conserver `SESSION_SECRET` (32 caractères minimum) et `APP_ORIGIN` HTTPS sans
+   `/` final. Le stockage privé est automatique : aucune variable `STORAGE_DIR`
+   n'est requise.
+   Conserver les clés de chiffrement après les
    mises à jour, sinon les fichiers privés existants ne seront plus lisibles.
-4. **Stockage** : créer `STORAGE_DIR` hors du dépôt déployé et du Document Root,
-   par exemple `/var/www/vhosts/votre-domaine/private/bca-messenger`. Permissions
-   700, accessible en écriture à l'utilisateur Node. Ne jamais l'effacer au deploy.
+4. **Stockage automatique** : au démarrage, l'application crée un dossier privé
+   dans `.bca-messenger-private/`, à côté du dépôt Git, donc hors de `plesk/public`
+   et des fichiers remplacés par Deploy Now. Le sous-dossier propre à l'application
+   est stable pour le même Application Root, avec permissions 700. Aucun chemin à
+   configurer. Le compte Node doit pouvoir écrire dans le dossier parent du dépôt.
+   Ne jamais effacer ce dossier lors d'une mise à jour et l'inclure aux sauvegardes.
+   Une ancienne valeur explicite de `STORAGE_DIR` reste acceptée pour ne pas
+   déplacer des fichiers existants. La retirer uniquement pour une installation
+   neuve ou après transfert explicite des fichiers vers le stockage automatique.
 5. **Action de déploiement Git** : activer les actions supplémentaires et ajouter :
 
    ```sh
@@ -269,7 +277,8 @@ Socket.IO partagé, des sessions adhérentes pour polling et un limiteur partag�
   illisibles.** Conserver les anciennes clés dans une sauvegarde sécurisée.
 - Sauvegarder quotidiennement la base (MySQL/MariaDB : export Plesk/phpMyAdmin ou
   `mariadb-dump` ; PostgreSQL existant : `pg_dump`, restauration via `pg_restore`)
-  et `STORAGE_DIR` de façon cohérente, chiffrer les sauvegardes, conserver les clés
+  et le dossier privé automatique (ou l'ancien `STORAGE_DIR`) de façon cohérente,
+  chiffrer les sauvegardes, conserver les clés
   séparément et tester une restauration régulièrement. Planifier ces tâches chez
   l’hébergeur : le dépôt ne crée pas de sauvegarde distante automatiquement.
 - Nettoyer périodiquement les sessions expirées et les fichiers téléversés mais
